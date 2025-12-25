@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=DELULU
+Comment=Anime & Manga Entertainment App
+Exec=/home/botsailer/Desktop/delulu/node_modules/.bin/electron /home/botsailer/Desktop/delulu
+Icon=/home/botsailer/Desktop/delulu/assets/icon.png
+Terminal=false
+Type=Application
+Categories=AudioVideo;Video;Entertainment;
+StartupWMClass=delulu
