@@ -56,7 +56,7 @@ export default function NetworkIndicator() {
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
         exit={{ opacity: 0, x: 20 }}
-        className="fixed top-4 right-4 z-50"
+        className="fixed top-20 right-4 z-[100]"
       >
         <div 
           className="flex items-center gap-2 px-4 py-2 rounded-full backdrop-blur-xl shadow-lg border"

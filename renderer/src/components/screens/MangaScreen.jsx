@@ -19,11 +19,12 @@ const SimpleImage = ({ src, alt, className, style }) => {
   const [loaded, setLoaded] = useState(false);
 
   // Accept data URLs (proxied), blob URLs, or MangaDex URLs (they have CORS)
+  // Also allow http/https URLs for other providers (MangaKakalot etc) even if they might fail CORS
+  // This fixes the issue where images from other servers weren't rendering
   const isValidSrc = src && (
     src.startsWith('data:') || 
     src.startsWith('blob:') || 
-    src.includes('mangadex.org') ||
-    src.includes('uploads.mangadex.org')
+    src.startsWith('http')
   );
   
   if (error || !src || !isValidSrc) {
@@ -682,15 +683,15 @@ const ChapterReader = ({ chapter, chapterIndex, allChapters, provider, onClose, 
         ) : readingMode === 'vertical' ? (
           <div className="max-w-4xl mx-auto py-16">
             {pages.map((page, index) => (
-              <div key={page.page || index} className="relative mb-1">
+              <div key={page.page || index} className="relative flex flex-col">
                 {page.success ? (
-                  <img src={page.data} alt={`Page ${index + 1}`} className="w-full" loading="lazy" />
+                  <img src={page.data} alt={`Page ${index + 1}`} className="w-full block" loading="lazy" />
                 ) : (
                   <div className="w-full aspect-[2/3] flex items-center justify-center rounded-lg" style={{ background: 'rgba(255,255,255,0.05)' }}>
                     <span className="text-4xl font-black text-white/20">{index + 1}</span>
                   </div>
                 )}
-                <div className="absolute bottom-2 right-2 px-2 py-1 rounded text-xs text-white/60 bg-black/50">{index + 1}</div>
+                <div className="absolute bottom-2 right-2 px-2 py-1 rounded text-xs text-white/60 bg-black/50 pointer-events-none">{index + 1}</div>
               </div>
             ))}
             
@@ -813,7 +814,7 @@ const MangaScreen = () => {
   };
 
   return (
-    <div className="min-h-screen pt-4 pb-8 px-6" style={{ background: theme.background }}>
+    <div className="min-h-screen pt-24 pb-8 px-6" style={{ background: theme.background }}>
       <div className="max-w-7xl mx-auto mb-8">
         <h1 className="text-3xl font-black mb-1" style={{ color: theme.text }}>Manga Library</h1>
         <p className="text-sm opacity-60" style={{ color: theme.text }}>Browse manga from multiple sources</p>
@@ -898,7 +899,13 @@ const MangaScreen = () => {
         ) : mangaList.length > 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
             {mangaList.map((manga, index) => (
-              <MangaCard key={manga.id} item={manga} index={index} onSelect={handleSelectManga} />
+              <MangaCard 
+                key={manga.id} 
+                item={manga} 
+                index={index} 
+                onSelect={handleSelectManga} 
+                provider={view === 'search' ? searchProvider : 's1'}
+              />
             ))}
           </div>
         ) : (
@@ -907,7 +914,7 @@ const MangaScreen = () => {
           </div>
         )}
 
-        {mangaList.length > 0 && (
+        {(mangaList.length > 0 || page > 1) && (
           <div className="flex justify-center gap-4 mt-8">
             <button
               onClick={() => setPage(p => Math.max(1, p - 1))}
@@ -918,7 +925,8 @@ const MangaScreen = () => {
             <span className="px-4 py-2.5 text-sm" style={{ color: theme.text }}>Page {page}</span>
             <button
               onClick={() => setPage(p => p + 1)}
-              className="px-6 py-2.5 rounded-xl font-medium text-sm"
+              disabled={mangaList.length === 0}
+              className="px-6 py-2.5 rounded-xl font-medium disabled:opacity-50 text-sm"
               style={{ background: theme.primary, color: '#fff' }}
             >Next</button>
           </div>

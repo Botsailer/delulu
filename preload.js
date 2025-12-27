@@ -116,4 +116,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // App info
   isPackaged: process.env.NODE_ENV === 'production',
+  
+  // System
+  system: {
+    onUninstallRequest: (callback) => ipcRenderer.on('system:uninstall-request', callback),
+    confirmUninstall: () => ipcRenderer.invoke('system:confirm-uninstall'),
+  }
 });
