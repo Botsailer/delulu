@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useThemeStore } from '../../store';
-import { jikanApi } from '../../services/api';
+import { useThemeStore, useNavigationStore } from '../../store';
+import { useAnimeSpotlight } from '../../hooks/useAnimeStreaming';
 
 // More Info Modal Component
 const AnimeInfoModal = ({ anime, isOpen, onClose, theme }) => {
@@ -269,34 +269,50 @@ const AnimeInfoModal = ({ anime, isOpen, onClose, theme }) => {
 
 const HeroBanner = () => {
   const { theme } = useThemeStore();
+  const { navigateToAnime } = useNavigationStore();
   const [showInfoModal, setShowInfoModal] = useState(false);
-  const [featuredAnime, setFeaturedAnime] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [currentIndex, setCurrentIndex] = useState(0);
 
-  // Fetch a featured anime on mount
+  // Fetch spotlight data from Hianime (p1) provider
+  const { data: spotlightData, loading } = useAnimeSpotlight('p1');
+  
+  // Get spotlight items
+  const spotlightItems = spotlightData?.results || [];
+  const featuredAnime = spotlightItems[currentIndex];
+
+  // Auto-rotate featured anime
   useEffect(() => {
-    const fetchFeatured = async () => {
-      try {
-        // Get top anime and pick one randomly from top 10
-        const data = await jikanApi.getTopAnime(1, 10, 'score');
-        if (data?.data?.length > 0) {
-          const randomIndex = Math.floor(Math.random() * Math.min(data.data.length, 10));
-          setFeaturedAnime(data.data[randomIndex]);
-        }
-      } catch (err) {
-        console.error('Failed to fetch featured anime:', err);
-      } finally {
-        setLoading(false);
-      }
+    if (spotlightItems.length <= 1) return;
+    const interval = setInterval(() => {
+      setCurrentIndex((prev) => (prev + 1) % Math.min(spotlightItems.length, 10));
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [spotlightItems.length]);
+
+  // Transform spotlight data to modal format
+  const getModalData = (item) => {
+    if (!item) return null;
+    return {
+      title: item.title,
+      title_japanese: item.japaneseTitle,
+      synopsis: item.description?.replace(/<[^>]*>/g, ''),
+      score: item.rating,
+      year: item.releaseDate,
+      episodes: item.totalEpisodes || item.episodes,
+      rating: item.type,
+      status: item.status,
+      genres: item.genres?.map(g => ({ name: g })) || [],
+      studios: [],
+      producers: [],
+      source: item.subOrDub,
     };
-    fetchFeatured();
-  }, []);
+  };
 
   // Loading state
   if (loading) {
     return (
       <div 
-        className="relative h-[45vh] min-h-[320px] w-full overflow-hidden pb-16 mb-8 animate-pulse"
+        className="relative h-[45vh] sm:h-[50vh] md:h-[55vh] min-h-[280px] w-full overflow-hidden pb-16 mb-8 animate-pulse"
         style={{ background: theme.surface }}
       />
     );
@@ -304,29 +320,40 @@ const HeroBanner = () => {
 
   return (
     <>
-      <div className="relative h-[45vh] min-h-[320px] w-full overflow-hidden pb-16 mb-8">
-        {/* Background Image or Gradient */}
-        {featuredAnime?.images?.jpg?.large_image_url ? (
-          <>
-            <div
-              className="absolute inset-0 bg-cover bg-center"
-              style={{
-                backgroundImage: `url(${featuredAnime.images.jpg.large_image_url})`,
-              }}
-            />
-            <div 
-              className="absolute inset-0"
-              style={{ background: `linear-gradient(90deg, ${theme.background}ee 0%, ${theme.background}aa 50%, transparent 100%)` }}
-            />
-          </>
-        ) : (
-          <div
+      <div className="relative h-[45vh] sm:h-[50vh] md:h-[55vh] min-h-[280px] w-full overflow-hidden pb-16 mb-8">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentIndex}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.5 }}
             className="absolute inset-0"
-            style={{
-              background: `linear-gradient(135deg, ${theme.primary}50 0%, ${theme.background} 60%, ${theme.accent}40 100%)`,
-            }}
-          />
-        )}
+          >
+            {/* Background Image or Gradient */}
+            {(featuredAnime?.cover || featuredAnime?.image) ? (
+              <>
+                <div
+                  className="absolute inset-0 bg-cover bg-center"
+                  style={{
+                    backgroundImage: `url(${featuredAnime.cover || featuredAnime.image})`,
+                  }}
+                />
+                <div 
+                  className="absolute inset-0"
+                  style={{ background: `linear-gradient(90deg, ${theme.background}ee 0%, ${theme.background}aa 50%, transparent 100%)` }}
+                />
+              </>
+            ) : (
+              <div
+                className="absolute inset-0"
+                style={{
+                  background: `linear-gradient(135deg, ${theme.primary}50 0%, ${theme.background} 60%, ${theme.accent}40 100%)`,
+                }}
+              />
+            )}
+          </motion.div>
+        </AnimatePresence>
         
         {/* Animated gradient overlay */}
         <motion.div
@@ -354,7 +381,7 @@ const HeroBanner = () => {
 
         {/* Content */}
         <div className="absolute inset-x-0 top-0 bottom-16 flex items-center pt-16">
-          <div className="px-4 sm:px-8 max-w-2xl">
+          <div className="px-4 sm:px-6 md:px-8 max-w-2xl">
             {/* Badge */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -367,17 +394,18 @@ const HeroBanner = () => {
               }}
             >
               <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-              <span className="text-sm font-semibold" style={{ color: theme.text }}>
-                Top Rated
+              <span className="text-xs sm:text-sm font-semibold" style={{ color: theme.text }}>
+                {featuredAnime?.rank ? `#${featuredAnime.rank} Spotlight` : 'Featured'}
               </span>
             </motion.div>
 
             {/* Title */}
             <motion.h1
+              key={`title-${currentIndex}`}
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
-              className="text-3xl md:text-4xl font-black mb-2"
+              className="text-2xl sm:text-3xl md:text-4xl font-black mb-2"
               style={{ 
                 color: theme.text,
                 textShadow: '0 2px 20px rgba(0,0,0,0.5)',
@@ -391,48 +419,77 @@ const HeroBanner = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.4 }}
-              className="flex flex-wrap items-center gap-2 mb-3 text-sm"
+              className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-3 text-xs sm:text-sm"
             >
-              {featuredAnime?.score && (
+              {featuredAnime?.rating && (
                 <span 
-                  className="px-2 py-0.5 rounded font-bold"
+                  className="px-1.5 sm:px-2 py-0.5 rounded font-bold"
                   style={{ background: theme.primary, color: '#fff' }}
                 >
-                  ★ {featuredAnime.score}
+                  ★ {featuredAnime.rating}
                 </span>
               )}
-              {featuredAnime?.year && (
-                <span style={{ color: theme.text }}>{featuredAnime.year}</span>
+              {featuredAnime?.releaseDate && (
+                <span style={{ color: theme.text }}>{featuredAnime.releaseDate}</span>
               )}
-              {featuredAnime?.episodes && (
+              {(featuredAnime?.totalEpisodes || featuredAnime?.episodes) && (
                 <>
                   <span style={{ color: theme.textSecondary }}>•</span>
-                  <span style={{ color: theme.text }}>{featuredAnime.episodes} Episodes</span>
+                  <span style={{ color: theme.text }}>
+                    {featuredAnime.totalEpisodes || featuredAnime.episodes} Episodes
+                  </span>
                 </>
               )}
-              {featuredAnime?.rating && (
+              {featuredAnime?.type && (
                 <>
                   <span style={{ color: theme.textSecondary }}>•</span>
                   <span 
-                    className="px-2 py-0.5 rounded text-xs"
+                    className="px-1.5 sm:px-2 py-0.5 rounded text-xs"
                     style={{ border: `1px solid ${theme.text}50`, color: theme.text }}
                   >
-                    {featuredAnime.rating}
+                    {featuredAnime.type}
                   </span>
+                </>
+              )}
+              {featuredAnime?.duration && (
+                <>
+                  <span style={{ color: theme.textSecondary }}>•</span>
+                  <span style={{ color: theme.textSecondary }}>{featuredAnime.duration}</span>
                 </>
               )}
             </motion.div>
 
+            {/* Genres */}
+            {featuredAnime?.genres?.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.45 }}
+                className="flex flex-wrap gap-1.5 mb-3"
+              >
+                {featuredAnime.genres.slice(0, 4).map((genre, i) => (
+                  <span
+                    key={i}
+                    className="px-2 py-0.5 rounded-full text-xs font-medium"
+                    style={{ background: `${theme.primary}30`, color: theme.primary }}
+                  >
+                    {genre}
+                  </span>
+                ))}
+              </motion.div>
+            )}
+
             {/* Description */}
             <motion.p
+              key={`desc-${currentIndex}`}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.5 }}
-              className="text-sm mb-4 line-clamp-2"
+              className="text-xs sm:text-sm mb-4 line-clamp-2"
               style={{ color: theme.text, opacity: 0.85 }}
             >
-              {featuredAnime?.synopsis?.slice(0, 200) || 'Discover amazing anime content...'}
-              {featuredAnime?.synopsis?.length > 200 ? '...' : ''}
+              {featuredAnime?.description?.replace(/<[^>]*>/g, '').slice(0, 180) || 'Discover amazing anime content...'}
+              {featuredAnime?.description?.length > 180 ? '...' : ''}
             </motion.p>
 
             {/* Buttons */}
@@ -443,7 +500,8 @@ const HeroBanner = () => {
               className="flex flex-wrap items-center gap-2"
             >
               <button
-                className="flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm transition-transform hover:scale-105 active:scale-95"
+                onClick={() => navigateToAnime(featuredAnime, 'p1')}
+                className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg font-bold text-sm transition-transform hover:scale-105 active:scale-95"
                 style={{
                   background: theme.primary,
                   color: '#fff',
@@ -486,11 +544,27 @@ const HeroBanner = () => {
             </motion.div>
           </div>
         </div>
+
+        {/* Dots indicator */}
+        {spotlightItems.length > 1 && (
+          <div className="absolute bottom-20 left-1/2 -translate-x-1/2 flex gap-1.5 sm:gap-2">
+            {spotlightItems.slice(0, 10).map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setCurrentIndex(i)}
+                className={`h-1.5 sm:h-2 rounded-full transition-all ${
+                  i === currentIndex ? 'w-4 sm:w-6' : 'w-1.5 sm:w-2 opacity-50 hover:opacity-75'
+                }`}
+                style={{ background: i === currentIndex ? theme.primary : '#fff' }}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* More Info Modal */}
       <AnimeInfoModal 
-        anime={featuredAnime}
+        anime={getModalData(featuredAnime)}
         isOpen={showInfoModal} 
         onClose={() => setShowInfoModal(false)} 
         theme={theme}

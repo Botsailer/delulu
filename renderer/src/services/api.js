@@ -291,3 +291,192 @@ export const consumetApi = {
   getChapterPages: (chapterId, provider = 'mangadex') => 
     fallbackFetch(`${CONSUMET_BASE}/manga/${provider}/read/${chapterId}`),
 };
+
+// ============ ANIME STREAMING API (via IPC) ============
+// Uses @consumet/extensions on the main process for M3U8 streaming
+
+export const animeStreamingApi = {
+  // Get available providers with features
+  getProviders: () => {
+    if (isElectron()) {
+      return window.electronAPI.anime.getProviders();
+    }
+    return Promise.resolve([]);
+  },
+
+  // Search anime
+  search: (provider, query, page = 1) => {
+    if (isElectron()) {
+      return window.electronAPI.anime.search(provider, query, page);
+    }
+    return Promise.resolve({ success: false, error: 'Not in Electron' });
+  },
+
+  // Get anime info with episodes
+  getInfo: (provider, animeId) => {
+    if (isElectron()) {
+      return window.electronAPI.anime.getInfo(provider, animeId);
+    }
+    return Promise.resolve({ success: false, error: 'Not in Electron' });
+  },
+
+  // Get episode sources (streaming URLs)
+  getEpisodeSources: (provider, episodeId, server, subOrDub = 'sub') => {
+    if (isElectron()) {
+      return window.electronAPI.anime.getEpisodeSources(provider, episodeId, server, subOrDub);
+    }
+    return Promise.resolve({ success: false, error: 'Not in Electron' });
+  },
+
+  // Get episode servers
+  getEpisodeServers: (provider, episodeId) => {
+    if (isElectron()) {
+      return window.electronAPI.anime.getEpisodeServers(provider, episodeId);
+    }
+    return Promise.resolve({ success: false, error: 'Not in Electron' });
+  },
+
+  // Spotlight content
+  getSpotlight: (provider = 'p1') => {
+    if (isElectron()) {
+      return window.electronAPI.anime.getSpotlight(provider);
+    }
+    return Promise.resolve({ success: false, error: 'Not in Electron' });
+  },
+
+  // Top airing
+  getTopAiring: (provider = 'p1', page = 1) => {
+    if (isElectron()) {
+      return window.electronAPI.anime.getTopAiring(provider, page);
+    }
+    return Promise.resolve({ success: false, error: 'Not in Electron' });
+  },
+
+  // Most popular
+  getMostPopular: (provider = 'p1', page = 1) => {
+    if (isElectron()) {
+      return window.electronAPI.anime.getMostPopular(provider, page);
+    }
+    return Promise.resolve({ success: false, error: 'Not in Electron' });
+  },
+
+  // Most favorite
+  getMostFavorite: (provider = 'p1', page = 1) => {
+    if (isElectron()) {
+      return window.electronAPI.anime.getMostFavorite(provider, page);
+    }
+    return Promise.resolve({ success: false, error: 'Not in Electron' });
+  },
+
+  // Latest completed
+  getLatestCompleted: (provider = 'p1', page = 1) => {
+    if (isElectron()) {
+      return window.electronAPI.anime.getLatestCompleted(provider, page);
+    }
+    return Promise.resolve({ success: false, error: 'Not in Electron' });
+  },
+
+  // Recently updated
+  getRecentlyUpdated: (provider = 'p1', page = 1) => {
+    if (isElectron()) {
+      return window.electronAPI.anime.getRecentlyUpdated(provider, page);
+    }
+    return Promise.resolve({ success: false, error: 'Not in Electron' });
+  },
+
+  // Recently added
+  getRecentlyAdded: (provider = 'p1', page = 1) => {
+    if (isElectron()) {
+      return window.electronAPI.anime.getRecentlyAdded(provider, page);
+    }
+    return Promise.resolve({ success: false, error: 'Not in Electron' });
+  },
+
+  // Top upcoming
+  getTopUpcoming: (provider = 'p1', page = 1) => {
+    if (isElectron()) {
+      return window.electronAPI.anime.getTopUpcoming(provider, page);
+    }
+    return Promise.resolve({ success: false, error: 'Not in Electron' });
+  },
+
+  // Recent episodes (AnimePahe)
+  getRecentEpisodes: (provider = 'p2', page = 1) => {
+    if (isElectron()) {
+      return window.electronAPI.anime.getRecentEpisodes(provider, page);
+    }
+    return Promise.resolve({ success: false, error: 'Not in Electron' });
+  },
+
+  // Schedule
+  getSchedule: (provider = 'p1', date) => {
+    if (isElectron()) {
+      return window.electronAPI.anime.getSchedule(provider, date);
+    }
+    return Promise.resolve({ success: false, error: 'Not in Electron' });
+  },
+
+  // Genres
+  getGenres: (provider = 'p1') => {
+    if (isElectron()) {
+      return window.electronAPI.anime.getGenres(provider);
+    }
+    return Promise.resolve({ success: false, error: 'Not in Electron' });
+  },
+
+  // Genre search
+  genreSearch: (provider, genre, page = 1) => {
+    if (isElectron()) {
+      return window.electronAPI.anime.genreSearch(provider, genre, page);
+    }
+    return Promise.resolve({ success: false, error: 'Not in Electron' });
+  },
+
+  // Advanced search
+  advancedSearch: (provider, options) => {
+    if (isElectron()) {
+      return window.electronAPI.anime.advancedSearch(provider, options);
+    }
+    return Promise.resolve({ success: false, error: 'Not in Electron' });
+  },
+
+  // Search suggestions
+  searchSuggestions: (provider, query) => {
+    if (isElectron()) {
+      return window.electronAPI.anime.searchSuggestions(provider, query);
+    }
+    return Promise.resolve({ success: false, error: 'Not in Electron' });
+  },
+
+  // M3U8 proxy
+  proxyM3U8: (url, headers) => {
+    if (isElectron()) {
+      return window.electronAPI.anime.proxyM3U8(url, headers);
+    }
+    return Promise.resolve({ success: false, error: 'Not in Electron' });
+  },
+
+  // Video segment proxy
+  proxySegment: (url, headers) => {
+    if (isElectron()) {
+      return window.electronAPI.anime.proxySegment(url, headers);
+    }
+    return Promise.resolve({ success: false, error: 'Not in Electron' });
+  },
+
+  // Image proxy
+  proxyImage: (imageUrl, provider) => {
+    if (isElectron()) {
+      return window.electronAPI.anime.proxyImage(imageUrl, provider);
+    }
+    return Promise.resolve({ success: false, error: 'Not in Electron' });
+  },
+
+  // Get stream proxy port
+  getProxyPort: () => {
+    if (isElectron()) {
+      return window.electronAPI.anime.getProxyPort();
+    }
+    return Promise.resolve({ success: false, error: 'Not in Electron' });
+  },
+};

@@ -3,6 +3,7 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import { registerAPIHandlers } from './api-handler.js'
 import { registerMangaHandlers } from './manga-handler.js'
+import { registerAnimeHandlers, startStreamProxy } from './anime-handler.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -137,6 +138,14 @@ app.whenReady().then(() => {
   // Register all API handlers (these run in main process, hidden from renderer)
   registerAPIHandlers(ipcMain)
   registerMangaHandlers(ipcMain)
+  registerAnimeHandlers(ipcMain)
+
+  // Start the local stream proxy server for M3U8/segment proxying
+  // This allows HLS.js to request from localhost with correct headers injected server-side
+  startStreamProxy().then(port => {
+    // Store the proxy port globally so renderer can access it
+    global.streamProxyPort = port;
+  }).catch(() => {});
 
   const mainWindow = createWindow()
 
@@ -213,9 +222,7 @@ app.whenReady().then(() => {
       
       // In a real scenario, we might spawn a detached process that asks for password via GUI (pkexec)
       // exec(`pkexec apt-get remove delulu -y`)
-      exec(`pkexec apt-get remove delulu -y`, (error) => {
-        if (error) console.error(error)
-      })
+      exec(`pkexec apt-get remove delulu -y`, () => {})
       
     } else if (process.platform === 'win32') {
       // Windows: Run the uninstaller

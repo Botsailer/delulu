@@ -17,13 +17,21 @@ const PROVIDER_INSTANCES = {
 
 // Referer URLs for image proxying
 const REFERER_URLS = {
-  s1: 'https://www.mangakakalot.gg',
+  s1: 'https://www.mangakakalot.gg/',
   s2: 'https://mangadex.org/',
   s3: 'https://www.mangahere.cc/',
   s4: 'https://mangapill.com/',
   s5: 'https://mangareader.to/',
   s6: 'https://asuracomic.net/',
   s7: 'https://weebcentral.com/',
+};
+
+// Additional referer fallbacks for specific image hosts
+const IMAGE_HOST_REFERERS = {
+  'fmcdn.mangahere.com': ['https://www.mangahere.cc/', 'https://mangahere.com/', 'https://www.mangahere.com/', 'http://www.mangahere.cc/'],
+  'mangahere.com': ['https://www.mangahere.cc/', 'https://mangahere.com/'],
+  'avt.mkklcdnv6temp.com': ['https://mangakakalot.com/', 'https://chapmanganato.com/'],
+  'uploads.mangadex.org': ['https://mangadex.org/'],
 };
 
 // Public server names (what frontend sees)
@@ -73,18 +81,32 @@ const proxyMangaImage = async (imageUrl, provider = 's1', headers = {}) => {
   
   const requestPromise = (async () => {
     try {
+      // Extract hostname to find host-specific referers
+      let hostname = '';
+      try {
+        hostname = new URL(imageUrl).hostname;
+      } catch (e) {}
+      
+      // Get host-specific referers if available
+      const hostReferers = IMAGE_HOST_REFERERS[hostname] || [];
+      
       const refererCandidates = [
+        ...hostReferers, // Host-specific referers first (highest priority)
         headers?.Referer,
         getReferer(provider),
         'https://mangakakalot.com/',
         'https://chapmanganato.com/',
         'https://readmanganato.com/',
         'https://manganato.com/',
-        '' // Empty referer
+        'https://www.mangahere.cc/',
+        'https://mangahere.com/',
+        '' // Empty referer as last resort
       ].filter(r => r !== undefined); // Keep empty string, filter undefined
 
       // Deduplicate
       const uniqueReferers = [...new Set(refererCandidates)];
+      
+      // Proxying manga image with host-specific referers
       
       let response = null;
       let success = false;
@@ -124,7 +146,7 @@ const proxyMangaImage = async (imageUrl, provider = 's1', headers = {}) => {
       }
       
       if (!success || !response) {
-        console.error(`[Proxy] Failed to fetch ${imageUrl} after trying all referers.`);
+        // Failed to fetch image after trying all referers
         return null; // Return null, not original URL!
       }
       
@@ -142,7 +164,7 @@ const proxyMangaImage = async (imageUrl, provider = 's1', headers = {}) => {
       
       return dataUrl;
     } catch (error) {
-      console.error(`[Proxy] Error fetching ${imageUrl}:`, error.message);
+      // Error fetching image - returning null
       return null; // Return null on error, not original URL!
     } finally {
       pendingImageRequests.delete(imageUrl);
@@ -164,13 +186,13 @@ const proxyMangaResults = async (data, provider = 's1') => {
         // Check for various image property names
         const imageUrl = item.image || item.poster || item.thumb || item.cover;
         if (imageUrl) {
-          // Store original URL in case proxy fails (for debugging or fallback)
+          // Store original URL for debugging
           item.originalImage = imageUrl;
           // Try to proxy with headers if available
           const proxied = await proxyMangaImage(imageUrl, provider, item.headerForImage);
-          // If proxy succeeds, use it. If it fails (returns null), use original URL as fallback
-          // This allows the frontend to try loading it directly (which might work for some servers)
-          item.image = proxied || imageUrl;
+          // If proxy fails, set to null - DON'T use original URL (browser will get 403)
+          // Frontend should handle null/missing images with a placeholder
+          item.image = proxied; // null if failed, base64 if success
         }
         return item;
       })
@@ -182,7 +204,7 @@ const proxyMangaResults = async (data, provider = 's1') => {
   if (imageUrl) {
     data.originalImage = imageUrl;
     const proxied = await proxyMangaImage(imageUrl, provider, data.headerForImage);
-    data.image = proxied || imageUrl;
+    data.image = proxied; // null if failed, base64 if success
   }
   
   return data;
@@ -355,16 +377,19 @@ export function registerMangaHandlers(ipcMain) {
       const manga = getProvider('s3');
       if (manga.fetchMangaTrending) {
         const results = await manga.fetchMangaTrending(page);
-        return { success: true, data: results };
+        const proxied = await proxyMangaResults(results, 's3');
+        return { success: true, data: proxied };
       }
       // Fallback to MangaDex popular
       const mangadex = getProvider('s1');
       if (mangadex.fetchPopular) {
         const results = await mangadex.fetchPopular(page);
-        return { success: true, data: results };
+        const proxied = await proxyMangaResults(results, 's1');
+        return { success: true, data: proxied };
       } else if (mangadex.fetchLatestUpdates) {
         const results = await mangadex.fetchLatestUpdates(page);
-        return { success: true, data: results };
+        const proxied = await proxyMangaResults(results, 's1');
+        return { success: true, data: proxied };
       }
       return { success: false, error: 'Trending not supported' };
     } catch (error) {

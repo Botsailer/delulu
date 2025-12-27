@@ -97,10 +97,14 @@ function App() {
   // Listen for uninstall request from main process
   useEffect(() => {
     if (window.electronAPI?.system?.onUninstallRequest) {
-      const removeListener = window.electronAPI.system.onUninstallRequest(() => {
+      const cleanup = window.electronAPI.system.onUninstallRequest(() => {
         setUninstallOpen(true);
       });
-      return () => removeListener && removeListener(); // Cleanup if function returns cleanup
+      return () => {
+        if (typeof cleanup === 'function') {
+          cleanup();
+        }
+      };
     }
   }, []);
 

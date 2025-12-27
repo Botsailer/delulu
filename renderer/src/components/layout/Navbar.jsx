@@ -28,14 +28,14 @@ const Navbar = ({ activeTab, setActiveTab, tabs, onSettingsClick }) => {
         backdropFilter: scrolled ? 'blur(20px)' : 'none',
       }}
     >
-      <div className="flex items-center justify-between px-8 py-4">
+      <div className="flex items-center justify-between px-4 sm:px-6 md:px-8 py-3 sm:py-4">
         {/* Logo */}
         <motion.div 
-          className="flex items-center gap-4"
+          className="flex items-center gap-2 sm:gap-4"
           whileHover={{ scale: 1.02 }}
         >
           <span 
-            className="text-3xl font-black tracking-tight"
+            className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight"
             style={{ 
               color: theme.primary,
             }}
@@ -45,12 +45,12 @@ const Navbar = ({ activeTab, setActiveTab, tabs, onSettingsClick }) => {
         </motion.div>
 
         {/* Navigation Tabs */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5 sm:gap-1">
           {tabs.map((tab) => (
             <motion.button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className="relative px-5 py-2 rounded-full font-medium text-sm transition-colors"
+              className="relative px-2 sm:px-4 md:px-5 py-1.5 sm:py-2 rounded-full font-medium text-xs sm:text-sm transition-colors"
               style={{
                 color: activeTab === tab.id ? theme.text : theme.textSecondary,
               }}
@@ -68,18 +68,19 @@ const Navbar = ({ activeTab, setActiveTab, tabs, onSettingsClick }) => {
                   transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
                 />
               )}
-              <span className="relative z-10 flex items-center gap-2">
-                {tab.icon}
-                {tab.label}
+              <span className="relative z-10 flex items-center gap-1 sm:gap-2">
+                <span className="hidden xs:inline">{tab.icon}</span>
+                <span className="hidden sm:inline">{tab.label}</span>
+                <span className="sm:hidden">{tab.icon || tab.label.charAt(0)}</span>
               </span>
             </motion.button>
           ))}
         </div>
 
         {/* Right Section - Search & Settings */}
-        <div className="flex items-center gap-4">
-          {/* Search */}
-          <div className="relative">
+        <div className="flex items-center gap-2 sm:gap-4">
+          {/* Search - hidden on small screens */}
+          <div className="relative hidden sm:block">
             <AnimatePresence>
               {searchOpen && (
                 <motion.input
@@ -119,12 +120,12 @@ const Navbar = ({ activeTab, setActiveTab, tabs, onSettingsClick }) => {
           {/* Settings Button */}
           <motion.button
             onClick={onSettingsClick}
-            className="p-2.5 rounded-full transition-colors"
+            className="p-2 sm:p-2.5 rounded-full transition-colors"
             style={{ color: theme.text }}
             whileHover={{ scale: 1.1, rotate: 90 }}
             whileTap={{ scale: 0.9 }}
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
@@ -132,14 +133,14 @@ const Navbar = ({ activeTab, setActiveTab, tabs, onSettingsClick }) => {
 
           {/* Profile Avatar */}
           <motion.div
-            className="w-9 h-9 rounded-full cursor-pointer overflow-hidden"
+            className="w-7 h-7 sm:w-9 sm:h-9 rounded-full cursor-pointer overflow-hidden"
             style={{ 
               background: `linear-gradient(135deg, ${theme.primary}, ${theme.accent})`,
             }}
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.95 }}
           >
-            <div className="w-full h-full flex items-center justify-center text-white font-bold text-sm">
+            <div className="w-full h-full flex items-center justify-center text-white font-bold text-xs sm:text-sm">
               U
             </div>
           </motion.div>

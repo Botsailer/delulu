@@ -55,6 +55,101 @@ contextBridge.exposeInMainWorld('electronAPI', {
     searchAnilist: (query, page, perPage) => 
       ipcRenderer.invoke('api:searchAnilist', { query, page, perPage }),
   },
+
+  // ============ ANIME STREAMING API (Consumet) ============
+  anime: {
+    // Get available providers with features
+    getProviders: () => 
+      ipcRenderer.invoke('anime:getProviders'),
+    
+    // Search anime
+    search: (provider, query, page) => 
+      ipcRenderer.invoke('anime:search', { provider, query, page }),
+    
+    // Get anime info with episodes
+    getInfo: (provider, animeId) => 
+      ipcRenderer.invoke('anime:getInfo', { provider, animeId }),
+    
+    // Get episode sources (streaming URLs with proxy URLs)
+    getEpisodeSources: (provider, episodeId, server, subOrDub) => 
+      ipcRenderer.invoke('anime:getEpisodeSources', { provider, episodeId, server, subOrDub }),
+    
+    // Get stream proxy port
+    getProxyPort: () => 
+      ipcRenderer.invoke('anime:getProxyPort'),
+    
+    // Get episode servers
+    getEpisodeServers: (provider, episodeId) => 
+      ipcRenderer.invoke('anime:getEpisodeServers', { provider, episodeId }),
+    
+    // Spotlight content
+    getSpotlight: (provider) => 
+      ipcRenderer.invoke('anime:getSpotlight', { provider }),
+    
+    // Top airing
+    getTopAiring: (provider, page) => 
+      ipcRenderer.invoke('anime:getTopAiring', { provider, page }),
+    
+    // Most popular
+    getMostPopular: (provider, page) => 
+      ipcRenderer.invoke('anime:getMostPopular', { provider, page }),
+    
+    // Most favorite
+    getMostFavorite: (provider, page) => 
+      ipcRenderer.invoke('anime:getMostFavorite', { provider, page }),
+    
+    // Latest completed
+    getLatestCompleted: (provider, page) => 
+      ipcRenderer.invoke('anime:getLatestCompleted', { provider, page }),
+    
+    // Recently updated
+    getRecentlyUpdated: (provider, page) => 
+      ipcRenderer.invoke('anime:getRecentlyUpdated', { provider, page }),
+    
+    // Recently added
+    getRecentlyAdded: (provider, page) => 
+      ipcRenderer.invoke('anime:getRecentlyAdded', { provider, page }),
+    
+    // Top upcoming
+    getTopUpcoming: (provider, page) => 
+      ipcRenderer.invoke('anime:getTopUpcoming', { provider, page }),
+    
+    // Recent episodes (AnimePahe)
+    getRecentEpisodes: (provider, page) => 
+      ipcRenderer.invoke('anime:getRecentEpisodes', { provider, page }),
+    
+    // Schedule
+    getSchedule: (provider, date) => 
+      ipcRenderer.invoke('anime:getSchedule', { provider, date }),
+    
+    // Genres
+    getGenres: (provider) => 
+      ipcRenderer.invoke('anime:getGenres', { provider }),
+    
+    // Genre search
+    genreSearch: (provider, genre, page) => 
+      ipcRenderer.invoke('anime:genreSearch', { provider, genre, page }),
+    
+    // Advanced search
+    advancedSearch: (provider, options) => 
+      ipcRenderer.invoke('anime:advancedSearch', { provider, options }),
+    
+    // Search suggestions
+    searchSuggestions: (provider, query) => 
+      ipcRenderer.invoke('anime:searchSuggestions', { provider, query }),
+    
+    // M3U8 proxy (for streaming)
+    proxyM3U8: (url, headers) => 
+      ipcRenderer.invoke('anime:proxyM3U8', { url, headers }),
+    
+    // Video segment proxy
+    proxySegment: (url, headers) => 
+      ipcRenderer.invoke('anime:proxySegment', { url, headers }),
+    
+    // Image proxy
+    proxyImage: (imageUrl, provider) => 
+      ipcRenderer.invoke('anime:proxyImage', { imageUrl, provider }),
+  },
   
   // ============ MANGA API (Consumet) ============
   manga: {
@@ -119,7 +214,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // System
   system: {
-    onUninstallRequest: (callback) => ipcRenderer.on('system:uninstall-request', callback),
+    onUninstallRequest: (callback) => {
+      const handler = (_event, ...args) => callback(...args);
+      ipcRenderer.on('system:uninstall-request', handler);
+      // Return cleanup function
+      return () => ipcRenderer.removeListener('system:uninstall-request', handler);
+    },
     confirmUninstall: () => ipcRenderer.invoke('system:confirm-uninstall'),
   }
 });

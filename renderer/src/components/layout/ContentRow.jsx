@@ -238,8 +238,7 @@ const MediaCard = ({ item, index, onMoreInfo, onPlay }) => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05 }}
-      className="relative flex-shrink-0 cursor-pointer"
-      style={{ width: '160px' }}
+      className="relative flex-shrink-0 cursor-pointer w-28 sm:w-32 md:w-36 lg:w-40"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
@@ -392,7 +391,7 @@ const ContentRow = ({ title, items }) => {
     <>
       <div className="mb-8 group/row">
         {/* Row Header */}
-        <div className="flex items-center justify-between px-8 mb-3">
+        <div className="flex items-center justify-between px-4 sm:px-6 md:px-8 mb-3">
           <h2 
             className="text-lg font-bold"
             style={{ color: theme.text }}
@@ -426,7 +425,7 @@ const ContentRow = ({ title, items }) => {
           {/* Content */}
           <div
             ref={scrollRef}
-            className="flex gap-4 overflow-x-auto px-8 py-2"
+            className="flex gap-3 sm:gap-4 overflow-x-auto px-4 sm:px-6 md:px-8 py-2 scrollbar-hide"
             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
           >
             {items.map((item, index) => (

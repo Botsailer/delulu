@@ -34,7 +34,7 @@ export const useMangaProviders = () => {
 
     window.electronAPI.manga.getProviders()
       .then(setProviders)
-      .catch(console.error)
+      .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
