@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url'
 import { registerAPIHandlers } from './api-handler.js'
 import { registerMangaHandlers } from './manga-handler.js'
 import { registerAnimeHandlers, startStreamProxy } from './anime-handler.js'
+import { registerMovieHandlers } from './movie-handler.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -139,6 +140,7 @@ app.whenReady().then(() => {
   registerAPIHandlers(ipcMain)
   registerMangaHandlers(ipcMain)
   registerAnimeHandlers(ipcMain)
+  registerMovieHandlers(ipcMain)
 
   // Start the local stream proxy server for M3U8/segment proxying
   // This allows HLS.js to request from localhost with correct headers injected server-side

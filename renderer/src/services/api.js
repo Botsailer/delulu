@@ -480,3 +480,112 @@ export const animeStreamingApi = {
     return Promise.resolve({ success: false, error: 'Not in Electron' });
   },
 };
+
+// ============ MOVIE/TV STREAMING API (via IPC) ============
+// Uses @consumet/extensions on the main process for M3U8 streaming
+
+export const movieStreamingApi = {
+  // Get available providers with features
+  getProviders: () => {
+    if (isElectron()) {
+      return window.electronAPI.movie.getProviders();
+    }
+    return Promise.resolve([]);
+  },
+
+  // Search movies/TV shows
+  search: (provider, query, page = 1) => {
+    if (isElectron()) {
+      return window.electronAPI.movie.search(provider, query, page);
+    }
+    return Promise.resolve({ success: false, error: 'Not in Electron' });
+  },
+
+  // Get movie/TV show info with episodes
+  getInfo: (provider, mediaId) => {
+    if (isElectron()) {
+      return window.electronAPI.movie.getInfo(provider, mediaId);
+    }
+    return Promise.resolve({ success: false, error: 'Not in Electron' });
+  },
+
+  // Get episode sources (streaming URLs)
+  getEpisodeSources: (provider, episodeId, mediaId, server) => {
+    if (isElectron()) {
+      return window.electronAPI.movie.getEpisodeSources(provider, episodeId, mediaId, server);
+    }
+    return Promise.resolve({ success: false, error: 'Not in Electron' });
+  },
+
+  // Get episode servers
+  getEpisodeServers: (provider, episodeId, mediaId) => {
+    if (isElectron()) {
+      return window.electronAPI.movie.getEpisodeServers(provider, episodeId, mediaId);
+    }
+    return Promise.resolve({ success: false, error: 'Not in Electron' });
+  },
+
+  // Spotlight content
+  getSpotlight: (provider = 'm1') => {
+    if (isElectron()) {
+      return window.electronAPI.movie.getSpotlight(provider);
+    }
+    return Promise.resolve({ success: false, error: 'Not in Electron' });
+  },
+
+  // Trending movies
+  getTrendingMovies: (provider = 'm1') => {
+    if (isElectron()) {
+      return window.electronAPI.movie.getTrendingMovies(provider);
+    }
+    return Promise.resolve({ success: false, error: 'Not in Electron' });
+  },
+
+  // Trending TV shows
+  getTrendingTvShows: (provider = 'm1') => {
+    if (isElectron()) {
+      return window.electronAPI.movie.getTrendingTvShows(provider);
+    }
+    return Promise.resolve({ success: false, error: 'Not in Electron' });
+  },
+
+  // Recent movies
+  getRecentMovies: (provider = 'm1') => {
+    if (isElectron()) {
+      return window.electronAPI.movie.getRecentMovies(provider);
+    }
+    return Promise.resolve({ success: false, error: 'Not in Electron' });
+  },
+
+  // Recent TV shows
+  getRecentTvShows: (provider = 'm1') => {
+    if (isElectron()) {
+      return window.electronAPI.movie.getRecentTvShows(provider);
+    }
+    return Promise.resolve({ success: false, error: 'Not in Electron' });
+  },
+
+  // By country
+  getByCountry: (provider, country, page = 1) => {
+    if (isElectron()) {
+      return window.electronAPI.movie.getByCountry(provider, country, page);
+    }
+    return Promise.resolve({ success: false, error: 'Not in Electron' });
+  },
+
+  // By genre
+  getByGenre: (provider, genre, page = 1) => {
+    if (isElectron()) {
+      return window.electronAPI.movie.getByGenre(provider, genre, page);
+    }
+    return Promise.resolve({ success: false, error: 'Not in Electron' });
+  },
+
+  // Image proxy
+  proxyImage: (imageUrl, provider) => {
+    if (isElectron()) {
+      return window.electronAPI.movie.proxyImage(imageUrl, provider);
+    }
+    return Promise.resolve({ success: false, error: 'Not in Electron' });
+  },
+};

@@ -1,28 +1,27 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useThemeStore, useNavigationStore } from '../../store';
 import VideoPlayer from '../VideoPlayer';
 import {
-  useAnimeProviders,
-  useAnimeSpotlight,
-  useTopAiring,
-  useMostPopularAnime,
-  useRecentlyUpdatedAnime,
-  useRecentlyAddedAnime,
-  useLatestCompleted,
-  useAnimeStreamingSearch,
-  useAnimeInfo,
-  useEpisodeSources,
-  useEpisodeServers,
-  useAnimeGenres,
-  useAnimeByGenre,
-} from '../../hooks/useAnimeStreaming';
+  useMovieProviders,
+  useMovieSpotlight,
+  useTrendingMovies,
+  useTrendingTvShows,
+  useRecentMovies,
+  useRecentTvShows,
+  useMovieSearch,
+  useMovieInfo,
+  useMovieEpisodeSources,
+  useMovieEpisodeServers,
+  useMoviesByGenre,
+} from '../../hooks/useMovieStreaming';
 
 // ============ MEDIA CARD COMPONENT ============
 const MediaCard = ({ item, index, provider, onPlay, onInfo }) => {
   const { theme } = useThemeStore();
   const [isHovered, setIsHovered] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [imageLoading, setImageLoading] = useState(true);
 
   const handleClick = () => {
     if (onInfo) onInfo(item, provider);
@@ -33,18 +32,20 @@ const MediaCard = ({ item, index, provider, onPlay, onInfo }) => {
     if (onPlay) onPlay(item, provider);
   };
 
+  const isMovie = item.type === 'Movie' || item.id?.includes('movie');
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: Math.min(index * 0.02, 0.3) }}
+      transition={{ delay: Math.min(index * 0.02, 0.2) }}
       className="cursor-pointer"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onClick={handleClick}
     >
       <motion.div
-        className="relative rounded-xl overflow-hidden"
+        className="relative rounded-lg sm:rounded-xl overflow-hidden"
         animate={{
           scale: isHovered ? 1.03 : 1,
           y: isHovered ? -5 : 0,
@@ -57,20 +58,32 @@ const MediaCard = ({ item, index, provider, onPlay, onInfo }) => {
         }}
       >
         <div className="relative aspect-[2/3]">
+          {/* Loading skeleton */}
+          {imageLoading && !imageError && (
+            <div 
+              className="absolute inset-0 animate-pulse"
+              style={{ background: theme.surface }}
+            />
+          )}
+          
           {item.image && !imageError ? (
             <img 
               src={item.image} 
               alt={item.title}
-              className="absolute inset-0 w-full h-full object-cover"
+              className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${imageLoading ? 'opacity-0' : 'opacity-100'}`}
               loading="lazy"
-              onError={() => setImageError(true)}
+              onLoad={() => setImageLoading(false)}
+              onError={() => {
+                setImageError(true);
+                setImageLoading(false);
+              }}
             />
           ) : (
             <div 
               className="absolute inset-0 flex items-center justify-center"
               style={{ background: `linear-gradient(135deg, ${theme.primary}60 0%, ${theme.accent}60 100%)` }}
             >
-              <span className="text-4xl font-black text-white/40">
+              <span className="text-2xl sm:text-3xl md:text-4xl font-black text-white/40">
                 {item.title?.charAt(0) || '?'}
               </span>
             </div>
@@ -79,53 +92,37 @@ const MediaCard = ({ item, index, provider, onPlay, onInfo }) => {
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
 
           {/* Rating badge */}
-          {(item.rating || item.score) && (
+          {item.rating && (
             <div 
-              className="absolute top-2 right-2 px-2 py-0.5 rounded text-xs font-bold"
+              className="absolute top-1.5 right-1.5 sm:top-2 sm:right-2 px-1.5 sm:px-2 py-0.5 rounded text-[10px] sm:text-xs font-bold"
               style={{ background: 'rgba(0,0,0,0.6)', color: '#fbbf24' }}
             >
-              ★ {typeof (item.rating || item.score) === 'number' 
-                ? (item.rating || item.score).toFixed(1) 
-                : item.rating || item.score}
+              ★ {typeof item.rating === 'number' ? item.rating.toFixed(1) : item.rating}
             </div>
           )}
 
-          {/* Sub/Dub badges */}
-          <div className="absolute top-2 left-2 flex gap-1">
-            {item.subOrDub && (
-              <span 
-                className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase"
-                style={{ 
-                  background: item.subOrDub === 'sub' ? '#3b82f6' : '#ef4444',
-                  color: '#fff'
-                }}
-              >
-                {item.subOrDub}
-              </span>
-            )}
-            {item.sub && (
-              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold" style={{ background: '#3b82f6', color: '#fff' }}>
-                SUB {item.sub}
-              </span>
-            )}
-            {item.dub && (
-              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold" style={{ background: '#ef4444', color: '#fff' }}>
-                DUB {item.dub}
-              </span>
-            )}
+          {/* Type badge */}
+          <div className="absolute top-1.5 left-1.5 sm:top-2 sm:left-2 flex gap-1">
+            <span 
+              className="px-1 sm:px-1.5 py-0.5 rounded text-[8px] sm:text-[10px] font-bold uppercase"
+              style={{ 
+                background: isMovie ? '#3b82f6' : '#10b981',
+                color: '#fff'
+              }}
+            >
+              {isMovie ? 'Movie' : 'TV'}
+            </span>
           </div>
 
           {/* Info overlay */}
-          <div className="absolute bottom-0 left-0 right-0 p-3">
-            <h3 className="font-bold text-white text-sm leading-tight line-clamp-2 mb-1">
+          <div className="absolute bottom-0 left-0 right-0 p-2 sm:p-3">
+            <h3 className="font-bold text-white text-xs sm:text-sm leading-tight line-clamp-2 mb-0.5 sm:mb-1">
               {item.title}
             </h3>
-            <div className="flex items-center gap-1 text-xs text-gray-300 flex-wrap">
-              {item.episodes && <span>{item.episodes} ep</span>}
-              {item.totalEpisodes && <span>{item.totalEpisodes} ep</span>}
-              {(item.episodes || item.totalEpisodes) && item.type && <span>•</span>}
-              {item.type && <span>{item.type}</span>}
-              {item.releaseDate && <span>• {item.releaseDate}</span>}
+            <div className="flex items-center gap-1 text-[10px] sm:text-xs text-gray-300 flex-wrap">
+              {item.releaseDate && <span>{item.releaseDate}</span>}
+              {item.duration && <span className="hidden xs:inline">• {item.duration}</span>}
+              {item.seasons && <span>• S{item.seasons}</span>}
             </div>
           </div>
 
@@ -143,10 +140,10 @@ const MediaCard = ({ item, index, provider, onPlay, onInfo }) => {
                   animate={{ scale: 1 }}
                   exit={{ scale: 0 }}
                   onClick={handlePlay}
-                  className="w-12 h-12 rounded-full flex items-center justify-center hover:scale-110 transition-transform"
+                  className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center hover:scale-110 transition-transform"
                   style={{ background: theme.primary }}
                 >
-                  <svg className="w-6 h-6 text-white ml-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white ml-0.5" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
                   </svg>
                 </motion.button>
@@ -163,11 +160,11 @@ const MediaCard = ({ item, index, provider, onPlay, onInfo }) => {
 const LoadingSkeleton = ({ count = 12 }) => {
   const { theme } = useThemeStore();
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-3 sm:gap-4">
+    <div className="grid grid-cols-3 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-2 sm:gap-3 md:gap-4">
       {Array(count).fill(0).map((_, i) => (
         <div 
           key={i} 
-          className="aspect-[2/3] rounded-xl animate-pulse"
+          className="aspect-[2/3] rounded-lg sm:rounded-xl animate-pulse"
           style={{ background: theme.surface }}
         />
       ))}
@@ -179,11 +176,11 @@ const LoadingSkeleton = ({ count = 12 }) => {
 const RowSkeleton = ({ count = 8 }) => {
   const { theme } = useThemeStore();
   return (
-    <div className="flex gap-3 overflow-hidden">
+    <div className="flex gap-2 sm:gap-3 overflow-hidden">
       {Array(count).fill(0).map((_, i) => (
         <div 
           key={i} 
-          className="flex-shrink-0 w-32 sm:w-36 md:w-40 aspect-[2/3] rounded-xl animate-pulse"
+          className="flex-shrink-0 w-24 xs:w-28 sm:w-32 md:w-36 lg:w-40 aspect-[2/3] rounded-lg sm:rounded-xl animate-pulse"
           style={{ background: theme.surface }}
         />
       ))}
@@ -192,35 +189,94 @@ const RowSkeleton = ({ count = 8 }) => {
 };
 
 // ============ HORIZONTAL SCROLL ROW ============
-const AnimeRow = ({ title, items = [], loading, error, provider, onPlay, onInfo }) => {
+const MovieRow = ({ title, items = [], loading, error, provider, onPlay, onInfo }) => {
   const { theme } = useThemeStore();
+  const scrollRef = useRef(null);
+  const [showLeftArrow, setShowLeftArrow] = useState(false);
+  const [showRightArrow, setShowRightArrow] = useState(true);
+
+  // Update arrow visibility on scroll
+  const handleScroll = useCallback(() => {
+    if (!scrollRef.current) return;
+    const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+    setShowLeftArrow(scrollLeft > 10);
+    setShowRightArrow(scrollLeft < scrollWidth - clientWidth - 10);
+  }, []);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) {
+      el.addEventListener('scroll', handleScroll);
+      handleScroll();
+      return () => el.removeEventListener('scroll', handleScroll);
+    }
+  }, [items, handleScroll]);
+
+  const scroll = (direction) => {
+    if (scrollRef.current) {
+      const scrollAmount = direction === 'left' ? -300 : 300;
+      scrollRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    }
+  };
 
   if (error) return null;
 
   return (
-    <div className="mb-6">
-      <h2 className="text-base sm:text-lg font-bold mb-3 px-4 sm:px-6 md:px-8" style={{ color: theme.text }}>
+    <div className="mb-4 sm:mb-6 group/row">
+      <h2 className="text-sm sm:text-base md:text-lg font-bold mb-2 sm:mb-3 px-3 sm:px-4 md:px-6 lg:px-8" style={{ color: theme.text }}>
         {title}
       </h2>
       {loading ? (
-        <div className="px-4 sm:px-6 md:px-8">
+        <div className="px-3 sm:px-4 md:px-6 lg:px-8">
           <RowSkeleton />
         </div>
       ) : items.length > 0 ? (
-        <div className="overflow-x-auto scrollbar-hide px-4 sm:px-6 md:px-8">
-          <div className="flex gap-3 pb-2">
-            {items.map((item, index) => (
-              <div key={item.id || index} className="flex-shrink-0 w-32 sm:w-36 md:w-40">
-                <MediaCard 
-                  item={item} 
-                  index={index} 
-                  provider={provider}
-                  onPlay={onPlay}
-                  onInfo={onInfo}
-                />
-              </div>
-            ))}
+        <div className="relative">
+          {/* Left Arrow */}
+          <motion.button
+            initial={false}
+            animate={{ opacity: showLeftArrow ? 1 : 0, pointerEvents: showLeftArrow ? 'auto' : 'none' }}
+            className="absolute left-1 sm:left-2 top-1/2 -translate-y-1/2 z-20 w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center opacity-0 group-hover/row:opacity-100 transition-opacity"
+            style={{ background: `${theme.surface}ee`, color: theme.text }}
+            onClick={() => scroll('left')}
+          >
+            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </motion.button>
+
+          <div 
+            ref={scrollRef}
+            className="overflow-x-auto scrollbar-hide px-3 sm:px-4 md:px-6 lg:px-8 scroll-smooth"
+            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          >
+            <div className="flex gap-2 sm:gap-3 pb-2">
+              {items.map((item, index) => (
+                <div key={item.id || index} className="flex-shrink-0 w-24 xs:w-28 sm:w-32 md:w-36 lg:w-40">
+                  <MediaCard 
+                    item={item} 
+                    index={index} 
+                    provider={provider}
+                    onPlay={onPlay}
+                    onInfo={onInfo}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
+
+          {/* Right Arrow */}
+          <motion.button
+            initial={false}
+            animate={{ opacity: showRightArrow ? 1 : 0, pointerEvents: showRightArrow ? 'auto' : 'none' }}
+            className="absolute right-1 sm:right-2 top-1/2 -translate-y-1/2 z-20 w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center opacity-0 group-hover/row:opacity-100 transition-opacity"
+            style={{ background: `${theme.surface}ee`, color: theme.text }}
+            onClick={() => scroll('right')}
+          >
+            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </motion.button>
         </div>
       ) : null}
     </div>
@@ -252,6 +308,7 @@ const SpotlightBanner = ({ items = [], loading, provider, onPlay, onInfo }) => {
   if (items.length === 0) return null;
 
   const current = items[currentIndex];
+  const isMovie = current.type === 'Movie' || current.id?.includes('movie');
 
   return (
     <div className="relative w-full h-[50vh] sm:h-[60vh] md:h-[70vh] overflow-hidden">
@@ -264,23 +321,19 @@ const SpotlightBanner = ({ items = [], loading, provider, onPlay, onInfo }) => {
           transition={{ duration: 0.5 }}
           className="absolute inset-0"
         >
-          {/* Background image - check multiple possible fields */}
-          {(current.banner || current.cover || current.poster || current.backdrop || current.image) && (
+          {(current.cover || current.image || current.banner) && (
             <img
-              src={current.banner || current.cover || current.poster || current.backdrop || current.image}
+              src={current.cover || current.banner || current.image}
               alt={current.title}
               className="absolute inset-0 w-full h-full object-cover"
             />
           )}
 
-          {/* Gradient overlays */}
           <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/50 to-transparent" />
           <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
 
-          {/* Content */}
           <div className="absolute inset-0 flex items-end pb-16 sm:pb-20 md:pb-24 px-4 sm:px-6 md:px-8">
             <div className="max-w-2xl">
-              {/* Rank badge */}
               {current.rank && (
                 <span 
                   className="inline-block px-3 py-1 rounded-full text-xs font-bold mb-3"
@@ -294,32 +347,32 @@ const SpotlightBanner = ({ items = [], loading, provider, onPlay, onInfo }) => {
                 {current.title}
               </h1>
 
-              {/* Meta info */}
               <div className="flex flex-wrap items-center gap-2 mb-4">
                 {current.rating && (
                   <span className="px-2 py-1 rounded text-xs font-bold" style={{ background: '#fbbf24', color: '#000' }}>
                     ★ {current.rating}
                   </span>
                 )}
-                {current.type && (
-                  <span className="text-sm text-gray-300">{current.type}</span>
+                <span 
+                  className="px-2 py-1 rounded text-xs font-bold"
+                  style={{ background: isMovie ? '#3b82f6' : '#10b981', color: '#fff' }}
+                >
+                  {isMovie ? 'Movie' : 'TV Series'}
+                </span>
+                {current.releaseDate && (
+                  <span className="text-sm text-gray-300">{current.releaseDate}</span>
                 )}
                 {current.duration && (
                   <span className="text-sm text-gray-300">• {current.duration}</span>
                 )}
-                {current.episodes && (
-                  <span className="text-sm text-gray-300">• {current.episodes} Episodes</span>
-                )}
               </div>
 
-              {/* Description */}
               {current.description && (
                 <p className="text-sm sm:text-base text-gray-300 line-clamp-2 sm:line-clamp-3 mb-4">
                   {current.description.replace(/<[^>]*>/g, '')}
                 </p>
               )}
 
-              {/* Genres */}
               {current.genres?.length > 0 && (
                 <div className="flex flex-wrap gap-2 mb-4">
                   {current.genres.slice(0, 4).map((genre, i) => (
@@ -334,7 +387,6 @@ const SpotlightBanner = ({ items = [], loading, provider, onPlay, onInfo }) => {
                 </div>
               )}
 
-              {/* Actions */}
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => onPlay?.(current, provider)}
@@ -366,7 +418,6 @@ const SpotlightBanner = ({ items = [], loading, provider, onPlay, onInfo }) => {
         </motion.div>
       </AnimatePresence>
 
-      {/* Dots indicator */}
       {items.length > 1 && (
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2">
           {items.slice(0, 8).map((_, i) => (
@@ -385,13 +436,15 @@ const SpotlightBanner = ({ items = [], loading, provider, onPlay, onInfo }) => {
   );
 };
 
-// ============ ANIME INFO MODAL ============
-const AnimeInfoModal = ({ anime, provider, isOpen, onClose, onPlay }) => {
+// ============ MOVIE INFO MODAL ============
+const MovieInfoModal = ({ media, provider, isOpen, onClose, onPlay }) => {
   const { theme } = useThemeStore();
-  const { data: animeInfo, loading } = useAnimeInfo(provider, isOpen ? anime?.id : null);
+  const { data: mediaInfo, loading } = useMovieInfo(provider, isOpen ? media?.id : null);
   const [selectedEpisode, setSelectedEpisode] = useState(null);
+  const [selectedSeason, setSelectedSeason] = useState(1);
 
-  const info = animeInfo || anime;
+  const info = mediaInfo || media;
+  const isMovie = info?.type === 'Movie' || info?.id?.includes('movie');
 
   const handleKeyDown = useCallback((e) => {
     if (e.key === 'Escape') {
@@ -411,17 +464,17 @@ const AnimeInfoModal = ({ anime, provider, isOpen, onClose, onPlay }) => {
     }
   }, [isOpen, handleKeyDown]);
 
-  if (!isOpen || !anime) return null;
+  if (!isOpen || !media) return null;
 
-  // Prevent movies from opening in anime modal
-  if (anime?.type === 'movie') return null;
-
-  const episodes = Array.isArray(info?.episodes) ? info.episodes : [];
+  // For TV shows, group episodes by season
+  const episodes = info?.episodes || [];
+  const seasons = [...new Set(episodes.map(ep => ep.season || 1))].sort((a, b) => a - b);
+  const currentSeasonEpisodes = episodes.filter(ep => (ep.season || 1) === selectedSeason);
 
   return (
     <AnimatePresence>
       <motion.div
-        key="anime-info-backdrop"
+        key="movie-info-backdrop"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -429,7 +482,7 @@ const AnimeInfoModal = ({ anime, provider, isOpen, onClose, onPlay }) => {
         onClick={onClose}
       />
       <motion.div
-        key="anime-info-modal"
+        key="movie-info-modal"
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -451,7 +504,6 @@ const AnimeInfoModal = ({ anime, provider, isOpen, onClose, onPlay }) => {
         >
           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
 
-          {/* Close button */}
           <button
             onClick={onClose}
             className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full flex items-center justify-center hover:scale-110 transition-transform"
@@ -462,14 +514,18 @@ const AnimeInfoModal = ({ anime, provider, isOpen, onClose, onPlay }) => {
             </svg>
           </button>
 
-          {/* Title */}
           <div className="absolute bottom-4 left-4 right-16">
+            <div className="flex items-center gap-2 mb-2">
+              <span 
+                className="px-2 py-0.5 rounded text-xs font-bold"
+                style={{ background: isMovie ? '#3b82f6' : '#10b981', color: '#fff' }}
+              >
+                {isMovie ? 'Movie' : 'TV Series'}
+              </span>
+            </div>
             <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-white">
               {info.title}
             </h2>
-            {info.japaneseTitle && (
-              <p className="text-sm text-gray-400 mt-1">{info.japaneseTitle}</p>
-            )}
           </div>
         </div>
 
@@ -480,9 +536,13 @@ const AnimeInfoModal = ({ anime, provider, isOpen, onClose, onPlay }) => {
         >
           <button
             onClick={() => {
-              if (episodes.length > 0) {
-
-                onPlay?.(anime, provider, episodes[0], episodes);
+              if (isMovie) {
+                // For movies, play directly with the movie ID
+                const movieEpisode = episodes[0] || { id: info.id };
+                onPlay?.(media, provider, movieEpisode, episodes);
+              } else if (currentSeasonEpisodes.length > 0) {
+                // For TV shows, play first episode of current season
+                onPlay?.(media, provider, currentSeasonEpisodes[0], episodes);
               }
             }}
             className="flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold text-sm hover:scale-105 transition-transform"
@@ -492,15 +552,6 @@ const AnimeInfoModal = ({ anime, provider, isOpen, onClose, onPlay }) => {
               <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
             </svg>
             Watch Now
-          </button>
-          <button
-            className="flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm hover:scale-105 transition-transform"
-            style={{ background: theme.background, color: theme.text, border: `1px solid ${theme.textSecondary}40` }}
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Add to List
           </button>
         </div>
 
@@ -513,20 +564,14 @@ const AnimeInfoModal = ({ anime, provider, isOpen, onClose, onPlay }) => {
                 ★ {info.rating}
               </span>
             )}
-            {info.status && (
-              <span className="px-2 py-1 rounded text-xs" style={{ background: `${theme.accent}30`, color: theme.accent }}>
-                {info.status}
-              </span>
-            )}
-            {info.type && <span style={{ color: theme.text }}>{info.type}</span>}
-            {info.totalEpisodes && (
-              <span style={{ color: theme.textSecondary }}>• {info.totalEpisodes} Episodes</span>
+            {info.releaseDate && (
+              <span style={{ color: theme.textSecondary }}>{info.releaseDate}</span>
             )}
             {info.duration && (
               <span style={{ color: theme.textSecondary }}>• {info.duration}</span>
             )}
-            {info.releaseDate && (
-              <span style={{ color: theme.textSecondary }}>• {info.releaseDate}</span>
+            {info.country && (
+              <span style={{ color: theme.textSecondary }}>• {info.country}</span>
             )}
           </div>
 
@@ -545,6 +590,14 @@ const AnimeInfoModal = ({ anime, provider, isOpen, onClose, onPlay }) => {
             </div>
           )}
 
+          {/* Cast */}
+          {info.casts?.length > 0 && (
+            <div className="mb-4">
+              <span className="font-medium" style={{ color: theme.text }}>Cast: </span>
+              <span style={{ color: theme.textSecondary }}>{info.casts.slice(0, 5).join(', ')}</span>
+            </div>
+          )}
+
           {/* Description */}
           {info.description && (
             <div className="mb-6">
@@ -555,23 +608,46 @@ const AnimeInfoModal = ({ anime, provider, isOpen, onClose, onPlay }) => {
             </div>
           )}
 
-          {/* Episodes */}
+          {/* Episodes (for TV shows) */}
           {loading ? (
             <div className="flex items-center justify-center py-8">
               <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: theme.primary }} />
             </div>
-          ) : episodes.length > 0 ? (
+          ) : !isMovie && episodes.length > 0 ? (
             <div>
+              {/* Season selector */}
+              {seasons.length > 1 && (
+                <div className="flex items-center gap-2 mb-4">
+                  <span className="font-bold" style={{ color: theme.text }}>Season:</span>
+                  <select
+                    value={selectedSeason}
+                    onChange={(e) => setSelectedSeason(Number(e.target.value))}
+                    className="px-3 py-1.5 rounded-lg text-sm outline-none cursor-pointer"
+                    style={{
+                      background: theme.background,
+                      color: theme.text,
+                      border: `1px solid ${theme.textSecondary}40`,
+                    }}
+                  >
+                    {seasons.map((season) => (
+                      <option key={season} value={season}>
+                        Season {season}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <h3 className="font-bold mb-3" style={{ color: theme.text }}>
-                Episodes ({episodes.length})
+                Episodes ({currentSeasonEpisodes.length})
               </h3>
               <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2">
-                {episodes.map((ep, index) => (
+                {currentSeasonEpisodes.map((ep, index) => (
                   <button
                     key={ep.id || index}
                     onClick={() => {
                       setSelectedEpisode(ep);
-                      onPlay?.(anime, provider, ep, episodes);
+                      onPlay?.(media, provider, ep, episodes);
                     }}
                     className="py-2 px-3 rounded text-sm font-medium transition-all hover:scale-105"
                     style={{ 
@@ -580,14 +656,54 @@ const AnimeInfoModal = ({ anime, provider, isOpen, onClose, onPlay }) => {
                       border: `1px solid ${theme.textSecondary}30`,
                     }}
                   >
-                    {ep.number || index + 1}
+                    {ep.number || ep.episode || index + 1}
                   </button>
                 ))}
               </div>
             </div>
+          ) : isMovie ? (
+            <div className="text-center py-8">
+              <p style={{ color: theme.textSecondary }}>Click "Watch Now" to start streaming</p>
+            </div>
           ) : (
             <div className="text-center py-8">
               <p style={{ color: theme.textSecondary }}>No episodes available</p>
+            </div>
+          )}
+
+          {/* Recommendations */}
+          {info.recommendations?.length > 0 && (
+            <div className="mt-8">
+              <h3 className="font-bold mb-3" style={{ color: theme.text }}>
+                You May Also Like
+              </h3>
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
+                {info.recommendations.slice(0, 6).map((rec, index) => (
+                  <div
+                    key={rec.id || index}
+                    className="aspect-[2/3] rounded-lg overflow-hidden cursor-pointer hover:scale-105 transition-transform relative"
+                    onClick={() => {
+                      onClose();
+                      setTimeout(() => onPlay?.(rec, provider), 100);
+                    }}
+                  >
+                    {rec.image ? (
+                      <img src={rec.image} alt={rec.title} className="w-full h-full object-cover" />
+                    ) : (
+                      <div 
+                        className="w-full h-full flex items-center justify-center"
+                        style={{ background: theme.background }}
+                      >
+                        <span className="text-2xl font-bold text-white/30">{rec.title?.charAt(0)}</span>
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+                    <div className="absolute bottom-2 left-2 right-2">
+                      <p className="text-xs text-white font-medium line-clamp-2">{rec.title}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -597,15 +713,17 @@ const AnimeInfoModal = ({ anime, provider, isOpen, onClose, onPlay }) => {
 };
 
 // ============ VIDEO PLAYER MODAL ============
-const VideoPlayerModal = ({ isOpen, onClose, anime, episode, provider, onNextEpisode, onPrevEpisode, episodes = [] }) => {
+const VideoPlayerModal = ({ isOpen, onClose, media, episode, provider, onNextEpisode, onPrevEpisode, episodes = [] }) => {
   const { theme } = useThemeStore();
-  const { sources, loading, error, fetchSources, clearSources } = useEpisodeSources();
-  const { servers, fetchServers } = useEpisodeServers();
+  const { sources, loading, error, fetchSources, clearSources } = useMovieEpisodeSources();
+  const { servers, fetchServers } = useMovieEpisodeServers();
   const [selectedServer, setSelectedServer] = useState(null);
-  const [subOrDub, setSubOrDub] = useState('sub');
   const [showControls, setShowControls] = useState(true);
   
-  // Memoize video source URL to prevent unnecessary re-initialization
+  const isMovie = media?.type === 'Movie' || media?.id?.includes('movie');
+  const mediaId = media?.id;
+
+  // Memoize video source URL
   const videoSourceUrl = useMemo(() => {
     const source = sources?.sources?.find(s => s.quality === 'auto' || s.quality === 'default')
       || sources?.sources?.find(s => s.quality === '1080p')
@@ -618,12 +736,12 @@ const VideoPlayerModal = ({ isOpen, onClose, anime, episode, provider, onNextEpi
   const subtitles = useMemo(() => sources?.subtitles || [], [sources?.subtitles]);
 
   useEffect(() => {
-    if (isOpen && episode?.id) {
-      fetchSources(provider, episode.id, selectedServer, subOrDub);
-      fetchServers(provider, episode.id);
+    if (isOpen && episode?.id && mediaId) {
+      fetchSources(provider, episode.id, mediaId, selectedServer);
+      fetchServers(provider, episode.id, mediaId);
     }
     return () => clearSources();
-  }, [isOpen, episode?.id, provider, selectedServer, subOrDub]);
+  }, [isOpen, episode?.id, mediaId, provider, selectedServer]);
 
   // Auto-hide controls
   useEffect(() => {
@@ -693,18 +811,17 @@ const VideoPlayerModal = ({ isOpen, onClose, anime, episode, provider, onNextEpi
           <div className="flex items-center justify-between">
             {/* Left: Title and episode */}
             <div className="flex-1 min-w-0">
-              <h2 className="text-base sm:text-lg font-bold text-white truncate">{anime?.title}</h2>
-              {episode && (
+              <h2 className="text-base sm:text-lg font-bold text-white truncate">{media?.title}</h2>
+              {!isMovie && episode && (
                 <p className="text-xs sm:text-sm text-gray-300">
-                  Episode {episode.number || 1}
+                  {episode.season ? `S${episode.season} ` : ''}Episode {episode.number || episode.episode || 1}
                   {episode.title && ` - ${episode.title}`}
                 </p>
               )}
             </div>
 
-            {/* Center: Server and Sub/Dub controls */}
+            {/* Center: Server controls */}
             <div className="hidden sm:flex items-center gap-3 px-4">
-              {/* Server selector */}
               {servers.length > 0 && (
                 <select
                   value={selectedServer || ''}
@@ -719,30 +836,6 @@ const VideoPlayerModal = ({ isOpen, onClose, anime, episode, provider, onNextEpi
                   ))}
                 </select>
               )}
-
-              {/* Sub/Dub toggle */}
-              <div className="flex rounded-lg overflow-hidden border border-white/20">
-                <button
-                  onClick={() => setSubOrDub('sub')}
-                  className="px-3 py-1.5 text-xs font-bold transition-colors"
-                  style={{ 
-                    background: subOrDub === 'sub' ? theme.primary : 'transparent',
-                    color: '#fff'
-                  }}
-                >
-                  SUB
-                </button>
-                <button
-                  onClick={() => setSubOrDub('dub')}
-                  className="px-3 py-1.5 text-xs font-bold transition-colors"
-                  style={{ 
-                    background: subOrDub === 'dub' ? theme.primary : 'transparent',
-                    color: '#fff'
-                  }}
-                >
-                  DUB
-                </button>
-              </div>
             </div>
 
             {/* Right: Close button */}
@@ -771,29 +864,12 @@ const VideoPlayerModal = ({ isOpen, onClose, anime, episode, provider, onNextEpi
                 ))}
               </select>
             )}
-            <div className="flex rounded overflow-hidden">
-              <button
-                onClick={() => setSubOrDub('sub')}
-                className="px-2 py-1.5 text-xs font-bold"
-                style={{ background: subOrDub === 'sub' ? theme.primary : 'rgba(255,255,255,0.1)', color: '#fff' }}
-              >
-                SUB
-              </button>
-              <button
-                onClick={() => setSubOrDub('dub')}
-                className="px-2 py-1.5 text-xs font-bold"
-                style={{ background: subOrDub === 'dub' ? theme.primary : 'rgba(255,255,255,0.1)', color: '#fff' }}
-              >
-                DUB
-              </button>
-            </div>
           </div>
         </motion.div>
 
-        {/* Episode navigation buttons */}
-        {episodes.length > 1 && (
+        {/* Episode navigation buttons (for TV shows) */}
+        {!isMovie && episodes.length > 1 && (
           <>
-            {/* Previous Episode */}
             {hasPrevEpisode && (
               <motion.button
                 initial={{ x: -50, opacity: 0 }}
@@ -808,7 +884,6 @@ const VideoPlayerModal = ({ isOpen, onClose, anime, episode, provider, onNextEpi
               </motion.button>
             )}
 
-            {/* Next Episode */}
             {hasNextEpisode && (
               <motion.button
                 initial={{ x: 50, opacity: 0 }}
@@ -835,11 +910,11 @@ const VideoPlayerModal = ({ isOpen, onClose, anime, episode, provider, onNextEpi
               />
               <p className="text-white text-base font-medium">Loading video sources...</p>
               <p className="text-gray-500 text-sm">
-                {subOrDub.toUpperCase()} • {selectedServer || 'Auto Server'}
+                {selectedServer || 'Auto Server'}
               </p>
               {/* Refresh button while loading */}
               <button
-                onClick={() => fetchSources(provider, episode?.id, selectedServer, subOrDub)}
+                onClick={() => fetchSources(provider, episode?.id, mediaId, selectedServer)}
                 className="mt-2 px-4 py-2 rounded-lg font-medium text-sm hover:scale-105 transition-transform flex items-center gap-2"
                 style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: '1px solid rgba(255,255,255,0.2)' }}
               >
@@ -854,9 +929,9 @@ const VideoPlayerModal = ({ isOpen, onClose, anime, episode, provider, onNextEpi
               <div className="text-5xl">⚠️</div>
               <h3 className="text-lg font-bold text-white">Failed to load video</h3>
               <p className="text-gray-400 max-w-md text-sm">{error}</p>
-              <div className="flex flex-wrap justify-center gap-3 mt-2">
+              <div className="flex items-center gap-3 mt-2">
                 <button
-                  onClick={() => fetchSources(provider, episode?.id, selectedServer, subOrDub)}
+                  onClick={() => fetchSources(provider, episode?.id, mediaId, selectedServer)}
                   className="px-5 py-2.5 rounded-lg font-medium hover:scale-105 transition-transform flex items-center gap-2"
                   style={{ background: theme.primary, color: '#fff' }}
                 >
@@ -865,24 +940,31 @@ const VideoPlayerModal = ({ isOpen, onClose, anime, episode, provider, onNextEpi
                   </svg>
                   Retry
                 </button>
-                <button
-                  onClick={() => setSubOrDub(subOrDub === 'sub' ? 'dub' : 'sub')}
-                  className="px-5 py-2.5 rounded-lg font-medium hover:scale-105 transition-transform"
-                  style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: '1px solid rgba(255,255,255,0.2)' }}
-                >
-                  Try {subOrDub === 'sub' ? 'DUB' : 'SUB'}
-                </button>
+                {servers.length > 1 && (
+                  <button
+                    onClick={() => {
+                      // Try next server
+                      const currentIdx = servers.findIndex(s => s.name === selectedServer);
+                      const nextIdx = (currentIdx + 1) % servers.length;
+                      setSelectedServer(servers[nextIdx]?.name || null);
+                    }}
+                    className="px-5 py-2.5 rounded-lg font-medium hover:scale-105 transition-transform"
+                    style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: '1px solid rgba(255,255,255,0.2)' }}
+                  >
+                    Try Another Server
+                  </button>
+                )}
               </div>
             </div>
           ) : videoSourceUrl ? (
             <VideoPlayer
               src={videoSourceUrl}
-              title={`${anime?.title} - Episode ${episode?.number || 1}`}
+              title={isMovie ? media?.title : `${media?.title} - Episode ${episode?.number || 1}`}
               poster={null}
               subtitles={subtitles}
               autoPlay={true}
               onEnded={() => {
-                if (hasNextEpisode) {
+                if (!isMovie && hasNextEpisode) {
                   onNextEpisode?.(episodes[currentEpisodeIndex + 1]);
                 }
               }}
@@ -893,25 +975,16 @@ const VideoPlayerModal = ({ isOpen, onClose, anime, episode, provider, onNextEpi
             <div className="flex flex-col items-center gap-4">
               <div className="text-5xl">📺</div>
               <p className="text-gray-400">No video sources available</p>
-              <div className="flex flex-wrap justify-center gap-3 mt-2">
-                <button
-                  onClick={() => fetchSources(provider, episode?.id, selectedServer, subOrDub)}
-                  className="px-5 py-2.5 rounded-lg font-medium hover:scale-105 transition-transform flex items-center gap-2"
-                  style={{ background: theme.primary, color: '#fff' }}
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  Retry
-                </button>
-                <button
-                  onClick={() => setSubOrDub(subOrDub === 'sub' ? 'dub' : 'sub')}
-                  className="px-5 py-2.5 rounded-lg font-medium hover:scale-105 transition-transform"
-                  style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: '1px solid rgba(255,255,255,0.2)' }}
-                >
-                  Try {subOrDub === 'sub' ? 'DUB' : 'SUB'}
-                </button>
-              </div>
+              <button
+                onClick={() => fetchSources(provider, episode?.id, mediaId, selectedServer)}
+                className="mt-2 px-5 py-2.5 rounded-lg font-medium hover:scale-105 transition-transform flex items-center gap-2"
+                style={{ background: theme.primary, color: '#fff' }}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Retry
+              </button>
             </div>
           )}
         </div>
@@ -920,77 +993,81 @@ const VideoPlayerModal = ({ isOpen, onClose, anime, episode, provider, onNextEpi
   );
 };
 
-// ============ MAIN ANIME SCREEN ============
-const AnimeScreen = () => {
+// ============ MAIN MOVIES SCREEN ============
+const MoviesScreen = () => {
   const { theme } = useThemeStore();
-  const { selectedAnime, selectedProvider: navProvider, clearSelected } = useNavigationStore();
+  const { selectedMovie, selectedMovieProvider: navProvider, clearSelected } = useNavigationStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
-  const [selectedProvider, setSelectedProvider] = useState(navProvider || 'p1');
+  const [selectedProvider, setSelectedProvider] = useState(navProvider || 'm1');
   const [selectedGenre, setSelectedGenre] = useState('');
   const [page, setPage] = useState(1);
-  const [viewMode, setViewMode] = useState('home'); // 'home', 'search', 'genre'
+  const [viewMode, setViewMode] = useState('home');
 
   // Modal states
-  const [infoModal, setInfoModal] = useState({ isOpen: false, anime: null, provider: null });
-  const [playerModal, setPlayerModal] = useState({ isOpen: false, anime: null, episode: null, provider: null, episodes: [] });
+  const [infoModal, setInfoModal] = useState({ isOpen: false, media: null, provider: null });
+  const [playerModal, setPlayerModal] = useState({ isOpen: false, media: null, episode: null, provider: null, episodes: [] });
 
-  // Check if we have a pre-selected anime from navigation (e.g., from home page)
+  // Check if we have a pre-selected movie from navigation
   useEffect(() => {
-    if (selectedAnime) {
-      // Open info modal for the selected anime
-      setInfoModal({ isOpen: true, anime: selectedAnime, provider: navProvider || 'p1' });
-      // Clear the selection so it doesn't re-open on next render
+    if (selectedMovie) {
+      setInfoModal({ isOpen: true, media: selectedMovie, provider: navProvider || 'm1' });
       clearSelected();
     }
-  }, [selectedAnime, navProvider, clearSelected]);
+  }, [selectedMovie, navProvider, clearSelected]);
 
   // Fetch providers
-  const { providers } = useAnimeProviders();
+  const { providers } = useMovieProviders();
 
   // Get current provider meta
   const currentProvider = providers.find(p => p.id === selectedProvider) || {};
 
   // Fetch data based on provider
-  const { data: spotlightData, loading: spotlightLoading } = useAnimeSpotlight(selectedProvider);
-  const { data: topAiringData, loading: topAiringLoading, error: topAiringError } = useTopAiring(selectedProvider, 1);
-  const { data: popularData, loading: popularLoading, error: popularError } = useMostPopularAnime(selectedProvider, 1);
-  const { data: recentlyUpdatedData, loading: recentlyUpdatedLoading, error: recentlyUpdatedError } = useRecentlyUpdatedAnime(selectedProvider, 1);
-  const { data: recentlyAddedData, loading: recentlyAddedLoading, error: recentlyAddedError } = useRecentlyAddedAnime(selectedProvider, 1);
-  const { data: completedData, loading: completedLoading, error: completedError } = useLatestCompleted(selectedProvider, 1);
-  const { data: searchData, loading: searchLoading, error: searchError } = useAnimeStreamingSearch(selectedProvider, debouncedQuery, page);
-  const { genres } = useAnimeGenres(selectedProvider);
-  const { data: genreData, loading: genreLoading, error: genreError } = useAnimeByGenre(selectedProvider, selectedGenre, page);
+  const { data: spotlightData, loading: spotlightLoading } = useMovieSpotlight(selectedProvider);
+  const { data: trendingMoviesData, loading: trendingMoviesLoading, error: trendingMoviesError } = useTrendingMovies(selectedProvider);
+  const { data: trendingTvData, loading: trendingTvLoading, error: trendingTvError } = useTrendingTvShows(selectedProvider);
+  const { data: recentMoviesData, loading: recentMoviesLoading, error: recentMoviesError } = useRecentMovies(selectedProvider);
+  const { data: recentTvData, loading: recentTvLoading, error: recentTvError } = useRecentTvShows(selectedProvider);
+  const { results: searchData, loading: searchLoading, error: searchError, search, clearResults } = useMovieSearch();
+  const { data: genreData, loading: genreLoading, error: genreError } = useMoviesByGenre(selectedProvider, selectedGenre, page);
 
   // Debounce search
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedQuery(searchQuery);
       if (searchQuery.trim().length >= 2) {
+        search(selectedProvider, searchQuery, page);
         setViewMode('search');
       } else if (searchQuery.trim().length === 0 && viewMode === 'search') {
+        clearResults();
         setViewMode('home');
       }
       setPage(1);
     }, 500);
     return () => clearTimeout(timer);
-  }, [searchQuery]);
+  }, [searchQuery, selectedProvider]);
 
   // Get items from results
   const getItems = (data) => data?.results || [];
 
+  // Available genres for movies
+  const movieGenres = [
+    'action', 'adventure', 'animation', 'biography', 'comedy', 'crime', 'documentary',
+    'drama', 'family', 'fantasy', 'history', 'horror', 'musical', 'mystery', 'romance',
+    'sci-fi', 'sport', 'thriller', 'war', 'western'
+  ];
+
   // Handlers
-  const handlePlay = (anime, provider, episode, episodes = []) => {
+  const handlePlay = (media, provider, episode, episodes = []) => {
     if (episode) {
-      setPlayerModal({ isOpen: true, anime, episode, provider, episodes });
+      setPlayerModal({ isOpen: true, media, episode, provider, episodes });
     } else {
-      // Open info modal to select episode
-      setInfoModal({ isOpen: true, anime, provider });
+      setInfoModal({ isOpen: true, media, provider });
     }
   };
 
-  const handleInfo = (anime, provider) => {
-    setInfoModal({ isOpen: true, anime, provider });
+  const handleInfo = (media, provider) => {
+    setInfoModal({ isOpen: true, media, provider });
   };
 
   const handleGenreSelect = (genre) => {
@@ -1055,7 +1132,7 @@ const AnimeScreen = () => {
               </svg>
             </button>
             <h2 className="text-lg font-bold" style={{ color: theme.text }}>
-              {selectedGenre.charAt(0).toUpperCase() + selectedGenre.slice(1)} Anime
+              {selectedGenre.charAt(0).toUpperCase() + selectedGenre.slice(1)} Movies & TV
             </h2>
           </div>
           {genreLoading ? (
@@ -1080,8 +1157,8 @@ const AnimeScreen = () => {
             </div>
           ) : (
             <div className="text-center py-16">
-              <div className="text-5xl mb-4">📺</div>
-              <p style={{ color: theme.textSecondary }}>No anime found for this genre</p>
+              <div className="text-5xl mb-4">🎬</div>
+              <p style={{ color: theme.textSecondary }}>No content found for this genre</p>
             </div>
           )}
         </div>
@@ -1104,60 +1181,48 @@ const AnimeScreen = () => {
 
         {/* Content rows */}
         <div className={currentProvider.hasSpotlight ? 'mt-[-4rem] relative z-10' : 'pt-32'}>
-          {currentProvider.hasTopAiring && (
-            <AnimeRow
-              title="🔥 Top Airing"
-              items={getItems(topAiringData)}
-              loading={topAiringLoading}
-              error={topAiringError}
+          {currentProvider.hasTrendingMovies && (
+            <MovieRow
+              title="🔥 Trending Movies"
+              items={getItems(trendingMoviesData)}
+              loading={trendingMoviesLoading}
+              error={trendingMoviesError}
               provider={selectedProvider}
               onPlay={handlePlay}
               onInfo={handleInfo}
             />
           )}
 
-          {currentProvider.hasMostPopular && (
-            <AnimeRow
-              title="⭐ Most Popular"
-              items={getItems(popularData)}
-              loading={popularLoading}
-              error={popularError}
+          {currentProvider.hasTrendingTvShows && (
+            <MovieRow
+              title="📺 Trending TV Shows"
+              items={getItems(trendingTvData)}
+              loading={trendingTvLoading}
+              error={trendingTvError}
               provider={selectedProvider}
               onPlay={handlePlay}
               onInfo={handleInfo}
             />
           )}
 
-          {currentProvider.hasRecentlyUpdated && (
-            <AnimeRow
-              title="✨ Recently Updated"
-              items={getItems(recentlyUpdatedData)}
-              loading={recentlyUpdatedLoading}
-              error={recentlyUpdatedError}
+          {currentProvider.hasRecentMovies && (
+            <MovieRow
+              title="🎬 Latest Movies"
+              items={getItems(recentMoviesData)}
+              loading={recentMoviesLoading}
+              error={recentMoviesError}
               provider={selectedProvider}
               onPlay={handlePlay}
               onInfo={handleInfo}
             />
           )}
 
-          {currentProvider.hasRecentlyAdded && (
-            <AnimeRow
-              title="🆕 Recently Added"
-              items={getItems(recentlyAddedData)}
-              loading={recentlyAddedLoading}
-              error={recentlyAddedError}
-              provider={selectedProvider}
-              onPlay={handlePlay}
-              onInfo={handleInfo}
-            />
-          )}
-
-          {currentProvider.hasLatestCompleted && (
-            <AnimeRow
-              title="✅ Latest Completed"
-              items={getItems(completedData)}
-              loading={completedLoading}
-              error={completedError}
+          {currentProvider.hasRecentTvShows && (
+            <MovieRow
+              title="✨ Latest TV Shows"
+              items={getItems(recentTvData)}
+              loading={recentTvLoading}
+              error={recentTvError}
               provider={selectedProvider}
               onPlay={handlePlay}
               onInfo={handleInfo}
@@ -1165,16 +1230,16 @@ const AnimeScreen = () => {
           )}
 
           {/* Genres */}
-          {currentProvider.hasGenres && genres.length > 0 && (
+          {currentProvider.hasByGenre && (
             <div className="mb-6 px-4 sm:px-6 md:px-8">
               <h2 className="text-base sm:text-lg font-bold mb-3" style={{ color: theme.text }}>
                 🎭 Browse by Genre
               </h2>
               <div className="flex flex-wrap gap-2">
-                {genres.slice(0, 20).map((genre, i) => (
+                {movieGenres.map((genre, i) => (
                   <button
                     key={i}
-                    onClick={() => handleGenreSelect(typeof genre === 'string' ? genre : genre.id || genre.name)}
+                    onClick={() => handleGenreSelect(genre)}
                     className="px-3 py-1.5 rounded-full text-sm font-medium hover:scale-105 transition-transform"
                     style={{ 
                       background: `${theme.primary}20`, 
@@ -1182,7 +1247,7 @@ const AnimeScreen = () => {
                       border: `1px solid ${theme.primary}40`,
                     }}
                   >
-                    {typeof genre === 'string' ? genre : genre.name || genre.title}
+                    {genre.charAt(0).toUpperCase() + genre.slice(1)}
                   </button>
                 ))}
               </div>
@@ -1228,7 +1293,7 @@ const AnimeScreen = () => {
               </svg>
               <input
                 type="text"
-                placeholder="Search anime..."
+                placeholder="Search movies & TV shows..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full h-10 pl-10 pr-4 rounded-lg text-sm outline-none"
@@ -1245,12 +1310,19 @@ const AnimeScreen = () => {
             <select
               value={selectedProvider}
               onChange={(e) => {
+                // Preserve scroll position when changing provider
+                const scrollY = window.scrollY;
                 setSelectedProvider(e.target.value);
                 setViewMode('home');
                 setSearchQuery('');
                 setSelectedGenre('');
+                clearResults();
+                // Restore scroll position after state updates
+                requestAnimationFrame(() => {
+                  window.scrollTo(0, scrollY);
+                });
               }}
-              className="h-10 px-3 rounded-lg text-sm outline-none cursor-pointer min-w-[120px]"
+              className="h-10 px-3 rounded-lg text-sm outline-none cursor-pointer min-w-[120px] flex-shrink-0"
               style={{
                 background: `${theme.surface}dd`,
                 color: theme.text,
@@ -1260,7 +1332,7 @@ const AnimeScreen = () => {
             >
               {providers.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.name} {p.language && p.language !== 'en' ? `(${p.language.toUpperCase()})` : ''}
+                  {p.name}
                 </option>
               ))}
             </select>
@@ -1272,21 +1344,21 @@ const AnimeScreen = () => {
       {renderContent()}
 
       {/* Modals */}
-      <AnimeInfoModal
-        anime={infoModal.anime}
+      <MovieInfoModal
+        media={infoModal.media}
         provider={infoModal.provider}
         isOpen={infoModal.isOpen}
-        onClose={() => setInfoModal({ isOpen: false, anime: null, provider: null })}
-        onPlay={(anime, provider, episode, episodes) => {
-          setInfoModal({ isOpen: false, anime: null, provider: null });
-          handlePlay(anime, provider, episode, episodes);
+        onClose={() => setInfoModal({ isOpen: false, media: null, provider: null })}
+        onPlay={(media, provider, episode, episodes) => {
+          setInfoModal({ isOpen: false, media: null, provider: null });
+          handlePlay(media, provider, episode, episodes);
         }}
       />
 
       <VideoPlayerModal
         isOpen={playerModal.isOpen}
-        onClose={() => setPlayerModal({ isOpen: false, anime: null, episode: null, provider: null, episodes: [] })}
-        anime={playerModal.anime}
+        onClose={() => setPlayerModal({ isOpen: false, media: null, episode: null, provider: null, episodes: [] })}
+        media={playerModal.media}
         episode={playerModal.episode}
         provider={playerModal.provider}
         episodes={playerModal.episodes}
@@ -1301,4 +1373,4 @@ const AnimeScreen = () => {
   );
 };
 
-export default AnimeScreen;
+export default MoviesScreen;

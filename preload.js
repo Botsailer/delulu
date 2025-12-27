@@ -197,6 +197,61 @@ contextBridge.exposeInMainWorld('electronAPI', {
     proxyImages: (images, provider) => 
       ipcRenderer.invoke('manga:proxyImages', { images, provider }),
   },
+
+  // ============ MOVIE/TV STREAMING API (Consumet) ============
+  movie: {
+    // Get available providers with features
+    getProviders: () => 
+      ipcRenderer.invoke('movie:getProviders'),
+    
+    // Search movies/TV shows
+    search: (provider, query, page) => 
+      ipcRenderer.invoke('movie:search', { provider, query, page }),
+    
+    // Get movie/TV show info with episodes
+    getInfo: (provider, mediaId) => 
+      ipcRenderer.invoke('movie:getInfo', { provider, mediaId }),
+    
+    // Get episode sources (streaming URLs with proxy URLs)
+    getEpisodeSources: (provider, episodeId, mediaId, server) => 
+      ipcRenderer.invoke('movie:getEpisodeSources', { provider, episodeId, mediaId, server }),
+    
+    // Get episode servers
+    getEpisodeServers: (provider, episodeId, mediaId) => 
+      ipcRenderer.invoke('movie:getEpisodeServers', { provider, episodeId, mediaId }),
+    
+    // Spotlight content
+    getSpotlight: (provider) => 
+      ipcRenderer.invoke('movie:getSpotlight', { provider }),
+    
+    // Trending movies
+    getTrendingMovies: (provider) => 
+      ipcRenderer.invoke('movie:getTrendingMovies', { provider }),
+    
+    // Trending TV shows
+    getTrendingTvShows: (provider) => 
+      ipcRenderer.invoke('movie:getTrendingTvShows', { provider }),
+    
+    // Recent movies
+    getRecentMovies: (provider) => 
+      ipcRenderer.invoke('movie:getRecentMovies', { provider }),
+    
+    // Recent TV shows
+    getRecentTvShows: (provider) => 
+      ipcRenderer.invoke('movie:getRecentTvShows', { provider }),
+    
+    // By country
+    getByCountry: (provider, country, page) => 
+      ipcRenderer.invoke('movie:getByCountry', { provider, country, page }),
+    
+    // By genre
+    getByGenre: (provider, genre, page) => 
+      ipcRenderer.invoke('movie:getByGenre', { provider, genre, page }),
+    
+    // Proxy image
+    proxyImage: (imageUrl, provider) => 
+      ipcRenderer.invoke('movie:proxyImage', { imageUrl, provider }),
+  },
   
   // ============ IMAGE PROXY (for all images) ============
   images: {

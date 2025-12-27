@@ -4,12 +4,14 @@ import { useThemeStore, useNavigationStore } from '../../store';
 
 // Media Info Modal Component
 const MediaInfoModal = ({ item, isOpen, onClose, theme }) => {
-  const { navigateToManga, navigateToAnime } = useNavigationStore();
+  const { navigateToManga, navigateToAnime, navigateToMovies } = useNavigationStore();
 
   const handleReadWatch = () => {
     onClose();
     if (item?.type === 'manga') {
       navigateToManga(item);
+    } else if (item?.type === 'movie') {
+      navigateToMovies(item);
     } else {
       navigateToAnime(item);
     }
@@ -232,18 +234,20 @@ const MediaCard = ({ item, index, onMoreInfo, onPlay }) => {
   const { theme } = useThemeStore();
   const [isHovered, setIsHovered] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [imageLoading, setImageLoading] = useState(true);
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.05 }}
-      className="relative flex-shrink-0 cursor-pointer w-28 sm:w-32 md:w-36 lg:w-40"
+      transition={{ delay: Math.min(index * 0.03, 0.2) }}
+      className="relative flex-shrink-0 cursor-pointer w-24 xs:w-28 sm:w-32 md:w-36 lg:w-40"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      onClick={() => onPlay?.(item)}
     >
       <motion.div
-        className="relative rounded-xl overflow-hidden"
+        className="relative rounded-lg sm:rounded-xl overflow-hidden"
         animate={{
           scale: isHovered ? 1.05 : 1,
           y: isHovered ? -5 : 0,
@@ -257,14 +261,26 @@ const MediaCard = ({ item, index, onMoreInfo, onPlay }) => {
       >
         {/* Card with image or gradient fallback */}
         <div className="relative aspect-[2/3]">
+          {/* Loading skeleton */}
+          {imageLoading && !imageError && (
+            <div 
+              className="absolute inset-0 animate-pulse"
+              style={{ background: theme.surface }}
+            />
+          )}
+          
           {/* Image or fallback gradient */}
           {item.image && !imageError ? (
             <img 
               src={item.image} 
               alt={item.title}
-              className="absolute inset-0 w-full h-full object-cover"
+              className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${imageLoading ? 'opacity-0' : 'opacity-100'}`}
               loading="lazy"
-              onError={() => setImageError(true)}
+              onLoad={() => setImageLoading(false)}
+              onError={() => {
+                setImageError(true);
+                setImageLoading(false);
+              }}
             />
           ) : (
             <div 
@@ -273,7 +289,7 @@ const MediaCard = ({ item, index, onMoreInfo, onPlay }) => {
                 background: item.gradient || `linear-gradient(135deg, ${theme.primary}60 0%, ${theme.accent}60 100%)` 
               }}
             >
-              <span className="text-5xl font-black text-white/30">
+              <span className="text-3xl sm:text-4xl md:text-5xl font-black text-white/30">
                 {item.title?.charAt(0) || '?'}
               </span>
             </div>
@@ -285,7 +301,7 @@ const MediaCard = ({ item, index, onMoreInfo, onPlay }) => {
           {/* Rating Badge */}
           {item.rating > 0 && (
             <div
-              className="absolute top-2 right-2 px-2 py-0.5 rounded text-xs font-bold"
+              className="absolute top-1.5 right-1.5 sm:top-2 sm:right-2 px-1.5 sm:px-2 py-0.5 rounded text-[10px] sm:text-xs font-bold"
               style={{
                 background: 'rgba(0,0,0,0.6)',
                 color: '#fbbf24',
@@ -296,14 +312,14 @@ const MediaCard = ({ item, index, onMoreInfo, onPlay }) => {
           )}
 
           {/* Title at bottom */}
-          <div className="absolute bottom-0 left-0 right-0 p-3">
-            <h3 className="font-bold text-white text-sm leading-tight line-clamp-2">
+          <div className="absolute bottom-0 left-0 right-0 p-2 sm:p-3">
+            <h3 className="font-bold text-white text-xs sm:text-sm leading-tight line-clamp-2">
               {item.title}
             </h3>
-            <div className="flex items-center gap-1 mt-1 text-xs text-gray-300">
+            <div className="flex items-center gap-1 mt-0.5 sm:mt-1 text-[10px] sm:text-xs text-gray-300">
               {item.year && item.year !== 'N/A' && <span>{item.year}</span>}
               {item.year && item.year !== 'N/A' && item.genre && <span>•</span>}
-              {item.genre && <span>{item.genre}</span>}
+              {item.genre && <span className="truncate">{item.genre}</span>}
             </div>
           </div>
 
@@ -323,14 +339,14 @@ const MediaCard = ({ item, index, onMoreInfo, onPlay }) => {
                   animate={{ scale: 1, y: 0 }}
                   exit={{ scale: 0, y: -10 }}
                   transition={{ delay: 0.05 }}
-                  className="w-10 h-10 rounded-full flex items-center justify-center hover:scale-110 transition-transform"
+                  className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center hover:scale-110 transition-transform"
                   style={{ background: theme.primary }}
                   onClick={(e) => {
                     e.stopPropagation();
                     if (onPlay) onPlay(item);
                   }}
                 >
-                  <svg className="w-4 h-4 text-white ml-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-3 h-3 sm:w-4 sm:h-4 text-white ml-0.5" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
                   </svg>
                 </motion.button>
@@ -341,7 +357,7 @@ const MediaCard = ({ item, index, onMoreInfo, onPlay }) => {
                   animate={{ scale: 1, y: 0 }}
                   exit={{ scale: 0, y: 10 }}
                   transition={{ delay: 0.1 }}
-                  className="px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1 hover:scale-105 transition-transform"
+                  className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-medium flex items-center gap-1 hover:scale-105 transition-transform"
                   style={{ 
                     background: `${theme.surface}ee`,
                     color: theme.text,
@@ -352,10 +368,11 @@ const MediaCard = ({ item, index, onMoreInfo, onPlay }) => {
                     if (onMoreInfo) onMoreInfo(item);
                   }}
                 >
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-2.5 h-2.5 sm:w-3 sm:h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  More Info
+                  <span className="hidden xs:inline">More Info</span>
+                  <span className="xs:hidden">Info</span>
                 </motion.button>
               </motion.div>
             )}
@@ -366,22 +383,49 @@ const MediaCard = ({ item, index, onMoreInfo, onPlay }) => {
   );
 };
 
-const ContentRow = ({ title, items }) => {
+const ContentRow = ({ title, items, onClick }) => {
   const { theme } = useThemeStore();
-  const { navigateToManga, navigateToAnime } = useNavigationStore();
+  const { navigateToManga, navigateToAnime, navigateToMovies } = useNavigationStore();
   const scrollRef = useRef(null);
   const [selectedItem, setSelectedItem] = useState(null);
+  const [showLeftArrow, setShowLeftArrow] = useState(false);
+  const [showRightArrow, setShowRightArrow] = useState(true);
+
+  // Update arrow visibility on scroll
+  const handleScroll = useCallback(() => {
+    if (!scrollRef.current) return;
+    const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+    setShowLeftArrow(scrollLeft > 10);
+    setShowRightArrow(scrollLeft < scrollWidth - clientWidth - 10);
+  }, []);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) {
+      el.addEventListener('scroll', handleScroll);
+      handleScroll();
+      return () => el.removeEventListener('scroll', handleScroll);
+    }
+  }, [items, handleScroll]);
 
   const scroll = (direction) => {
     if (scrollRef.current) {
-      const scrollAmount = direction === 'left' ? -400 : 400;
+      const scrollAmount = direction === 'left' ? -300 : 300;
       scrollRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
     }
   };
 
   const handlePlay = (item) => {
+    // If onClick prop is provided, use it (for custom navigation logic)
+    if (onClick) {
+      onClick(item);
+      return;
+    }
+    // Default navigation based on item type
     if (item?.type === 'manga') {
       navigateToManga(item);
+    } else if (item?.type === 'movie') {
+      navigateToMovies(item);
     } else {
       navigateToAnime(item);
     }
@@ -389,17 +433,17 @@ const ContentRow = ({ title, items }) => {
 
   return (
     <>
-      <div className="mb-8 group/row">
+      <div className="mb-6 sm:mb-8 group/row">
         {/* Row Header */}
-        <div className="flex items-center justify-between px-4 sm:px-6 md:px-8 mb-3">
+        <div className="flex items-center justify-between px-3 sm:px-4 md:px-6 lg:px-8 mb-2 sm:mb-3">
           <h2 
-            className="text-lg font-bold"
+            className="text-sm sm:text-base md:text-lg font-bold"
             style={{ color: theme.text }}
           >
             {title}
           </h2>
           <button
-            className="text-sm opacity-0 group-hover/row:opacity-100 transition-opacity"
+            className="text-xs sm:text-sm opacity-0 group-hover/row:opacity-100 transition-opacity"
             style={{ color: theme.primary }}
           >
             See all →
@@ -409,28 +453,30 @@ const ContentRow = ({ title, items }) => {
         {/* Scrollable Row */}
         <div className="relative">
           {/* Left Arrow */}
-          <button
-            className="absolute left-2 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full flex items-center justify-center opacity-0 group-hover/row:opacity-100 transition-opacity"
+          <motion.button
+            initial={false}
+            animate={{ opacity: showLeftArrow ? 1 : 0, pointerEvents: showLeftArrow ? 'auto' : 'none' }}
+            className="absolute left-1 sm:left-2 top-1/2 -translate-y-1/2 z-20 w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center opacity-0 group-hover/row:opacity-100 transition-opacity"
             style={{ 
               background: `${theme.surface}ee`,
               color: theme.text,
             }}
             onClick={() => scroll('left')}
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
-          </button>
+          </motion.button>
 
           {/* Content */}
           <div
             ref={scrollRef}
-            className="flex gap-3 sm:gap-4 overflow-x-auto px-4 sm:px-6 md:px-8 py-2 scrollbar-hide"
+            className="flex gap-2 sm:gap-3 md:gap-4 overflow-x-auto px-3 sm:px-4 md:px-6 lg:px-8 py-2 scrollbar-hide scroll-smooth"
             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
           >
             {items.map((item, index) => (
               <MediaCard 
-                key={item.id} 
+                key={item.id || index} 
                 item={item} 
                 index={index} 
                 onMoreInfo={(item) => setSelectedItem(item)}
@@ -440,18 +486,20 @@ const ContentRow = ({ title, items }) => {
           </div>
 
           {/* Right Arrow */}
-          <button
-            className="absolute right-2 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full flex items-center justify-center opacity-0 group-hover/row:opacity-100 transition-opacity"
+          <motion.button
+            initial={false}
+            animate={{ opacity: showRightArrow ? 1 : 0, pointerEvents: showRightArrow ? 'auto' : 'none' }}
+            className="absolute right-1 sm:right-2 top-1/2 -translate-y-1/2 z-20 w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center opacity-0 group-hover/row:opacity-100 transition-opacity"
             style={{ 
               background: `${theme.surface}ee`,
               color: theme.text,
             }}
             onClick={() => scroll('right')}
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
-          </button>
+          </motion.button>
         </div>
       </div>
 

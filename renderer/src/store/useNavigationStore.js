@@ -4,7 +4,9 @@ export const useNavigationStore = create((set) => ({
   activeTab: 'home',
   selectedManga: null,
   selectedAnime: null,
-  selectedProvider: 'p1', // Default provider
+  selectedMovie: null,
+  selectedProvider: 'p1', // Default anime provider
+  selectedMovieProvider: 'm1', // Default movie provider
   
   setActiveTab: (tab) => set({ activeTab: tab }),
   
@@ -24,9 +26,17 @@ export const useNavigationStore = create((set) => ({
     selectedProvider: provider,
   }),
   
+  // Navigate to movies screen with pre-selected movie and optional provider
+  navigateToMovies: (movie = null, provider = 'm1') => set({ 
+    activeTab: 'movies', 
+    selectedMovie: movie,
+    selectedMovieProvider: provider,
+  }),
+  
   // Clear selected items
   clearSelected: () => set({ 
     selectedManga: null, 
-    selectedAnime: null 
+    selectedAnime: null,
+    selectedMovie: null,
   }),
 }));
