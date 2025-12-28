@@ -134,7 +134,7 @@ export const useRecentMovies = (provider = 'm1') => {
   return { data, loading, error };
 };
 
-export const useSpotlightMovies = (provider = 'm2') => {
+export const useSpotlightMovies = (provider = 'm1') => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -147,8 +147,17 @@ export const useSpotlightMovies = (provider = 'm2') => {
         setLoading(true);
         setError(null);
 
-        // FlixHQ (m2) and SFlix (m4) support spotlight
-        const result = await movieStreamingApi.getSpotlight(provider);
+        // Try spotlight first (only m4/SFlix supports it now that m2/FlixHQ is disabled)
+        // Fallback to trending movies for other providers
+        let result;
+        if (provider === 'm4') {
+          result = await movieStreamingApi.getSpotlight(provider);
+        }
+        
+        // If spotlight fails or not supported, use trending movies
+        if (!result?.success) {
+          result = await movieStreamingApi.getTrendingMovies(provider);
+        }
 
         if (!mounted) return;
 

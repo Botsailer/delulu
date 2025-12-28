@@ -8,9 +8,10 @@ import { getStreamProxyPort } from './anime-handler.js';
 // Create persistent provider instances
 const PROVIDER_INSTANCES = {
   m1: new MOVIES.HiMovies(),
-  m2: new MOVIES.FlixHQ(),
+  // m2: new MOVIES.FlixHQ(), // Commented out - causing bugs
   m3: new MOVIES.Goku(),
   m4: new MOVIES.SFlix(),
+  m5: new MOVIES.NetMirror(),
 };
 
 // Provider metadata - features available per provider
@@ -26,6 +27,7 @@ const PROVIDER_META = {
     hasByGenre: true,
     language: 'en',
   },
+  /* m2 commented out - FlixHQ causing bugs
   m2: {
     name: 'Server 2',
     hasSpotlight: true,
@@ -37,6 +39,7 @@ const PROVIDER_META = {
     hasByGenre: true,
     language: 'en',
   },
+  */
   m3: {
     name: 'Server 3',
     hasSpotlight: false,
@@ -59,14 +62,26 @@ const PROVIDER_META = {
     hasByGenre: true,
     language: 'en',
   },
+  m5: {
+    name: 'Server 5',
+    hasSpotlight: false,
+    hasTrendingMovies: true,
+    hasTrendingTvShows: false,
+    hasRecentMovies: true,
+    hasRecentTvShows: false,
+    hasByCountry: false,
+    hasByGenre: false,
+    language: 'en',
+  },
 };
 
 // Referer URLs for streaming
 const REFERER_URLS = {
   m1: 'https://himovies.sx/',
-  m2: 'https://flixhq.to/',
+  // m2: 'https://flixhq.to/', // Commented out - FlixHQ disabled
   m3: 'https://goku.sx/',
   m4: 'https://sflix.ps/',
+  m5: 'https://net20.cc/',
 };
 
 // Image host specific referers
@@ -76,6 +91,7 @@ const IMAGE_HOST_REFERERS = {
   'img.goku.sx': ['https://goku.sx/'],
   'img.sflix.to': ['https://sflix.ps/', 'https://sflix.to/'],
   'img.sflix.ps': ['https://sflix.ps/'],
+  'imgcdn.kim': ['https://net20.cc/'],
 };
 
 // Get provider instance
@@ -100,6 +116,11 @@ const pendingImageRequests = new Map();
 const proxyMovieImage = async (imageUrl, provider = 'm1') => {
   if (!imageUrl || typeof imageUrl !== 'string') return null;
   if (imageUrl.startsWith('data:')) return imageUrl;
+
+  // Skip broken image hosts that always return 404
+  if (imageUrl.includes('imgcdn.kim')) {
+    return null; // NetMirror's image CDN is broken, use fallback placeholder
+  }
 
   // Check cache
   if (movieImageCache.has(imageUrl)) {
@@ -316,18 +337,48 @@ export function registerMovieHandlers(ipcMain) {
         }
       }
 
+      // Get provider base URL for resolving relative URLs
+      const providerBaseUrl = getReferer(provider).replace(/\/$/, '');
+
+      // Helper to resolve potentially relative URLs to absolute
+      const resolveUrl = (url) => {
+        if (!url) return url;
+        // Already absolute URL
+        if (url.startsWith('http://') || url.startsWith('https://')) {
+          return url;
+        }
+        // Protocol-relative URL
+        if (url.startsWith('//')) {
+          return `https:${url}`;
+        }
+        // Relative URL - resolve against provider base
+        if (url.startsWith('/')) {
+          return `${providerBaseUrl}${url}`;
+        }
+        return url;
+      };
+
       // Convert all source URLs to proxy URLs
       if (sources.sources && Array.isArray(sources.sources)) {
         sources.sources = sources.sources.map(source => ({
           ...source,
-          url: createProxyUrl(source.url, referer, origin),
+          url: createProxyUrl(resolveUrl(source.url), referer, origin),
           originalUrl: source.url,
         }));
       }
       
       // Handle single source field
       if (sources.source) {
-        sources.source = createProxyUrl(sources.source, referer, origin);
+        sources.source = createProxyUrl(resolveUrl(sources.source), referer, origin);
+      }
+
+      // Proxy subtitle URLs for CORS support
+      if (sources.subtitles && Array.isArray(sources.subtitles)) {
+        sources.subtitles = sources.subtitles.map(sub => ({
+          ...sub,
+          url: createProxyUrl(resolveUrl(sub.url), referer, origin),
+          originalUrl: sub.url,
+        }));
       }
 
       // Store the proxy port in the response
@@ -351,7 +402,18 @@ export function registerMovieHandlers(ipcMain) {
         return { success: false, error: 'Server selection not supported by this provider' };
       }
       
-      const servers = await movie.fetchEpisodeServers(episodeId, mediaId);
+      let servers = await movie.fetchEpisodeServers(episodeId, mediaId);
+      
+      // Rename server names to hide provider identity
+      if (Array.isArray(servers)) {
+        servers = servers.map((server, index) => ({
+          ...server,
+          name: server.name?.toLowerCase().includes('netmirror') 
+            ? `Stream ${index + 1}` 
+            : server.name,
+        }));
+      }
+      
       return { success: true, data: servers, provider };
     } catch (error) {
       return { success: false, error: error.message, provider };

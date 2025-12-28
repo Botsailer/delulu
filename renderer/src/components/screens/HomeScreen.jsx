@@ -8,7 +8,7 @@ import {
   useRecentlyUpdatedAnime 
 } from '../../hooks/useAnimeStreaming';
 import { usePopularManga, useTrendingManga } from '../../hooks/useManga';
-import { useTrendingMovies, useSpotlightMovies } from '../../hooks/useMovies';
+import { useTrendingMovies, useTrendingTvShows } from '../../hooks/useMovies';
 
 // Transform streaming anime data to our card format
 const transformStreamingAnimeData = (data) => {
@@ -104,9 +104,8 @@ const HomeScreen = () => {
 
   // Default provider for home screen (Hianime = p1 - has all features)
   const defaultAnimeProvider = 'p1';
-  // HiMovies = m1 (default), FlixHQ = m2 (has spotlight)
+  // HiMovies = m1 (default) - FlixHQ (m2) is disabled
   const defaultMovieProvider = 'm1';
-  const movieProviderWithSpotlight = 'm2'; // FlixHQ
 
   // Fetch anime data from streaming providers
   const { data: topAiringData, loading: topAiringLoading, error: topAiringError } = useTopAiring(defaultAnimeProvider, 1);
@@ -117,9 +116,9 @@ const HomeScreen = () => {
   const { data: popularMangaData, loading: topMangaLoading, error: topMangaError } = usePopularManga(1, 15);
   const { data: trendingMangaData, loading: trendingMangaLoading, error: trendingMangaError } = useTrendingManga(1, 15);
 
-  // Fetch movie data
+  // Fetch movie data - use m1 for all since m2 (FlixHQ) is disabled
   const { data: trendingMoviesData, loading: trendingMoviesLoading, error: trendingMoviesError } = useTrendingMovies(defaultMovieProvider, 1);
-  const { data: spotlightMoviesData, loading: spotlightMoviesLoading, error: spotlightMoviesError } = useSpotlightMovies(movieProviderWithSpotlight);
+  const { data: trendingTvShowsData, loading: trendingTvShowsLoading, error: trendingTvShowsError } = useTrendingTvShows(defaultMovieProvider, 1);
 
   // Transform API responses
   const topAiringAnime = transformStreamingAnimeData(topAiringData);
@@ -128,7 +127,7 @@ const HomeScreen = () => {
   const topManga = transformMangaData(popularMangaData);
   const trendingManga = transformMangaData(trendingMangaData);
   const trendingMovies = transformMovieData(trendingMoviesData);
-  const spotlightMovies = transformMovieData(spotlightMoviesData);
+  const trendingTvShows = transformMovieData(trendingTvShowsData);
 
   // Handle clicking on cards - navigate with the selected item
   const handleAnimeClick = (item) => {
@@ -143,9 +142,8 @@ const HomeScreen = () => {
 
   const handleMovieClick = (item) => {
     // Pass the item to navigate and open its info modal
-    // Use the provider that the item came from
-    const provider = spotlightMovies.some(m => m.id === item.id) ? movieProviderWithSpotlight : defaultMovieProvider;
-    navigateToMovies(item, provider);
+    // All movies use m1 provider since m2 (FlixHQ) is disabled
+    navigateToMovies(item, defaultMovieProvider);
   };
 
   return (
@@ -189,18 +187,18 @@ const HomeScreen = () => {
           )}
         </div>
 
-        {/* Spotlight Movies */}
-        {spotlightMovies.length > 0 && (
+        {/* Trending TV Shows */}
+        {trendingTvShows.length > 0 && (
           <div className="mb-2">
             <h2 className="text-base sm:text-lg font-bold mb-3 px-4 sm:px-6 md:px-8" style={{ color: theme.text }}>
-              ⭐ Spotlight Movies & Shows
+              📺 Trending TV Shows
             </h2>
-            {spotlightMoviesLoading ? (
+            {trendingTvShowsLoading ? (
               <LoadingSkeleton />
-            ) : spotlightMoviesError ? (
+            ) : trendingTvShowsError ? (
               <ErrorMessage />
             ) : (
-              <ContentRow items={spotlightMovies} onClick={handleMovieClick} />
+              <ContentRow items={trendingTvShows} onClick={handleMovieClick} />
             )}
           </div>
         )}

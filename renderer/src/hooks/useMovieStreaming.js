@@ -78,6 +78,7 @@ export const useMovieProviders = () => {
 };
 
 // ============ SPOTLIGHT ============
+// Falls back to trending movies from m1 if spotlight is not available
 
 export const useMovieSpotlight = (provider = 'm1') => {
   const [data, setData] = useState(null);
@@ -102,18 +103,44 @@ export const useMovieSpotlight = (provider = 'm1') => {
     setError(null);
 
     try {
-      const result = await withRetry(() => movieStreamingApi.getSpotlight(provider), 3);
+      // Try to get spotlight first
+      const result = await withRetry(() => movieStreamingApi.getSpotlight(provider), 2);
       if (isMounted.current) {
-        if (result.success) {
+        if (result.success && result.data?.results?.length > 0) {
           setData(result.data);
           setCache(cacheKey, result.data);
         } else {
-          setError(result.error);
+          // Fallback: Use trending movies from m1 as spotlight
+          const fallbackResult = await withRetry(() => movieStreamingApi.getTrendingMovies('m1'), 2);
+          if (isMounted.current && fallbackResult.success && fallbackResult.data?.results?.length > 0) {
+            // Take first 5-10 items for spotlight
+            const spotlightData = {
+              results: fallbackResult.data.results.slice(0, 8),
+            };
+            setData(spotlightData);
+            setCache(cacheKey, spotlightData);
+          } else {
+            setError(result.error || 'No spotlight data available');
+          }
         }
       }
     } catch (err) {
-      if (isMounted.current) {
-        setError(err.message);
+      // Fallback on error: try trending movies
+      try {
+        const fallbackResult = await withRetry(() => movieStreamingApi.getTrendingMovies('m1'), 2);
+        if (isMounted.current && fallbackResult.success && fallbackResult.data?.results?.length > 0) {
+          const spotlightData = {
+            results: fallbackResult.data.results.slice(0, 8),
+          };
+          setData(spotlightData);
+          setCache(`movie-spotlight-${provider}`, spotlightData);
+        } else {
+          setError(err.message);
+        }
+      } catch (fallbackErr) {
+        if (isMounted.current) {
+          setError(err.message);
+        }
       }
     } finally {
       if (isMounted.current) {
@@ -419,9 +446,17 @@ export const useMovieInfo = (provider, mediaId) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const isMounted = useRef(true);
+  const lastMediaIdRef = useRef(null);
 
   useEffect(() => {
     isMounted.current = true;
+
+    // Clear data when mediaId changes to prevent showing stale data
+    if (lastMediaIdRef.current !== mediaId) {
+      setData(null);
+      setError(null);
+      lastMediaIdRef.current = mediaId;
+    }
 
     if (!mediaId) {
       setLoading(false);

@@ -48,6 +48,8 @@ const VideoPlayer = ({
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isSwitchingQuality, setIsSwitchingQuality] = useState(false);
+  const [isBuffering, setIsBuffering] = useState(false);
+  const [hasStartedPlaying, setHasStartedPlaying] = useState(false);
 
   const playbackRates = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
 
@@ -63,6 +65,8 @@ const VideoPlayer = ({
     currentSrcRef.current = src;
     setLoading(true);
     setError(null);
+    setIsBuffering(false);
+    setHasStartedPlaying(false);
 
     const isHls = src.includes('.m3u8') || src.includes('/proxy?');
 
@@ -137,6 +141,16 @@ const VideoPlayer = ({
       hls.on(Hls.Events.FRAG_BUFFERED, () => {
         // Fragment buffered successfully
         setIsSwitchingQuality(false);
+        setIsBuffering(false);
+      });
+
+      // Handle buffering events
+      hls.on(Hls.Events.BUFFER_STALLED, () => {
+        setIsBuffering(true);
+      });
+
+      hls.on(Hls.Events.BUFFER_EOS, () => {
+        setIsBuffering(false);
       });
 
       hls.on(Hls.Events.ERROR, (event, data) => {
@@ -435,16 +449,21 @@ const VideoPlayer = ({
         playsInline
         crossOrigin="anonymous"
         onTimeUpdate={handleTimeUpdate}
-        onPlay={() => setIsPlaying(true)}
+        onPlay={() => { setIsPlaying(true); setHasStartedPlaying(true); setIsBuffering(false); }}
         onPause={() => setIsPlaying(false)}
         onEnded={() => { setIsPlaying(false); callbacksRef.current.onEnded?.(); }}
         onLoadedData={() => setLoading(false)}
-        onCanPlay={() => { setLoading(false); setIsReady(true); }}
+        onCanPlay={() => { setLoading(false); setIsReady(true); setIsBuffering(false); }}
+        onCanPlayThrough={() => setIsBuffering(false)}
+        onWaiting={() => setIsBuffering(true)}
+        onPlaying={() => { setIsBuffering(false); setHasStartedPlaying(true); }}
+        onSeeking={() => setIsBuffering(true)}
+        onSeeked={() => setIsBuffering(false)}
         onError={(e) => { setError('Video error'); callbacksRef.current.onError?.(e); }}
         style={{ objectFit: 'contain' }}
       />
 
-      {/* Loading Overlay */}
+      {/* Loading Overlay - show when initially loading */}
       {loading && !isSwitchingQuality && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-10">
           <div className="flex flex-col items-center gap-4">
@@ -453,6 +472,21 @@ const VideoPlayer = ({
               style={{ borderColor: `${theme.primary} transparent transparent transparent` }}
             />
             <p className="text-white text-sm">Loading...</p>
+          </div>
+        </div>
+      )}
+
+      {/* Buffering Overlay - show when buffering or when video hasn't started yet */}
+      {!loading && (isBuffering || (!hasStartedPlaying && isReady && !isPlaying)) && !isSwitchingQuality && (
+        <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+          <div className="flex flex-col items-center gap-3">
+            <div
+              className="w-10 h-10 border-3 border-t-transparent rounded-full animate-spin"
+              style={{ borderColor: `${theme.primary} transparent transparent transparent`, borderWidth: '3px' }}
+            />
+            <p className="text-white text-xs opacity-80">
+              {isBuffering ? 'Buffering...' : 'Starting...'}
+            </p>
           </div>
         </div>
       )}

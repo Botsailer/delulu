@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useThemeStore, useNavigationStore } from '../../store';
-import VideoPlayer from '../VideoPlayer';
+import UniversalPlayer from '../UniversalPlayer';
 import {
   useMovieProviders,
   useMovieSpotlight,
@@ -443,7 +443,16 @@ const MovieInfoModal = ({ media, provider, isOpen, onClose, onPlay }) => {
   const [selectedEpisode, setSelectedEpisode] = useState(null);
   const [selectedSeason, setSelectedSeason] = useState(1);
 
-  const info = mediaInfo || media;
+  // Reset state when modal opens with new media
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedEpisode(null);
+      setSelectedSeason(1);
+    }
+  }, [isOpen, media?.id]);
+
+  // Only show mediaInfo if it matches current media id (prevent stale data)
+  const info = (mediaInfo && mediaInfo.id === media?.id) ? mediaInfo : (loading ? null : media);
   const isMovie = info?.type === 'Movie' || info?.id?.includes('movie');
 
   const handleKeyDown = useCallback((e) => {
@@ -493,67 +502,89 @@ const MovieInfoModal = ({ media, provider, isOpen, onClose, onPlay }) => {
           border: `1px solid ${theme.textSecondary}30`,
         }}
       >
-        {/* Header */}
-        <div 
-          className="relative h-40 sm:h-48 md:h-56 flex-shrink-0"
-          style={{ 
-            background: info.image || info.cover
-              ? `url(${info.cover || info.image}) center/cover`
-              : `linear-gradient(135deg, ${theme.primary}60 0%, ${theme.accent}60 100%)`
-          }}
-        >
-          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
-
-          <button
-            onClick={onClose}
-            className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full flex items-center justify-center hover:scale-110 transition-transform"
-            style={{ background: `${theme.background}cc`, color: theme.text }}
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-
-          <div className="absolute bottom-4 left-4 right-16">
-            <div className="flex items-center gap-2 mb-2">
-              <span 
-                className="px-2 py-0.5 rounded text-xs font-bold"
-                style={{ background: isMovie ? '#3b82f6' : '#10b981', color: '#fff' }}
-              >
-                {isMovie ? 'Movie' : 'TV Series'}
-              </span>
+        {/* Loading state when info is not yet available */}
+        {!info ? (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="flex flex-col items-center gap-4">
+              <div 
+                className="w-12 h-12 border-4 border-t-transparent rounded-full animate-spin"
+                style={{ borderColor: `${theme.primary} transparent transparent transparent` }}
+              />
+              <p style={{ color: theme.textSecondary }}>Loading movie info...</p>
             </div>
-            <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-white">
-              {info.title}
-            </h2>
+            <button
+              onClick={onClose}
+              className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full flex items-center justify-center hover:scale-110 transition-transform"
+              style={{ background: `${theme.background}cc`, color: theme.text }}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
-        </div>
+        ) : (
+          <>
+            {/* Header */}
+            <div 
+              className="relative h-40 sm:h-48 md:h-56 flex-shrink-0"
+              style={{ 
+                background: info.image || info.cover
+                  ? `url(${info.cover || info.image}) center/cover`
+                  : `linear-gradient(135deg, ${theme.primary}60 0%, ${theme.accent}60 100%)`
+              }}
+            >
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
 
-        {/* Actions */}
-        <div 
-          className="flex items-center gap-3 px-4 sm:px-6 py-4 border-b flex-shrink-0"
-          style={{ borderColor: `${theme.textSecondary}20` }}
-        >
-          <button
-            onClick={() => {
-              if (isMovie) {
-                // For movies, play directly with the movie ID
-                const movieEpisode = episodes[0] || { id: info.id };
-                onPlay?.(media, provider, movieEpisode, episodes);
-              } else if (currentSeasonEpisodes.length > 0) {
-                // For TV shows, play first episode of current season
-                onPlay?.(media, provider, currentSeasonEpisodes[0], episodes);
-              }
-            }}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold text-sm hover:scale-105 transition-transform"
-            style={{ background: theme.primary, color: '#fff' }}
-          >
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
-            </svg>
-            Watch Now
-          </button>
-        </div>
+              <button
+                onClick={onClose}
+                className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full flex items-center justify-center hover:scale-110 transition-transform"
+                style={{ background: `${theme.background}cc`, color: theme.text }}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+
+              <div className="absolute bottom-4 left-4 right-16">
+                <div className="flex items-center gap-2 mb-2">
+                  <span 
+                    className="px-2 py-0.5 rounded text-xs font-bold"
+                    style={{ background: isMovie ? '#3b82f6' : '#10b981', color: '#fff' }}
+                  >
+                    {isMovie ? 'Movie' : 'TV Series'}
+                  </span>
+                </div>
+                <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-white">
+                  {info.title}
+                </h2>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div 
+              className="flex items-center gap-3 px-4 sm:px-6 py-4 border-b flex-shrink-0"
+              style={{ borderColor: `${theme.textSecondary}20` }}
+            >
+              <button
+                onClick={() => {
+                  if (isMovie) {
+                    // For movies, play directly with the movie ID
+                    const movieEpisode = episodes[0] || { id: info.id };
+                    onPlay?.(media, provider, movieEpisode, episodes);
+                  } else if (currentSeasonEpisodes.length > 0) {
+                    // For TV shows, play first episode of current season
+                    onPlay?.(media, provider, currentSeasonEpisodes[0], episodes);
+                  }
+                }}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold text-sm hover:scale-105 transition-transform"
+                style={{ background: theme.primary, color: '#fff' }}
+              >
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
+                </svg>
+                Watch Now
+              </button>
+            </div>
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6">
@@ -707,6 +738,8 @@ const MovieInfoModal = ({ media, provider, isOpen, onClose, onPlay }) => {
             </div>
           )}
         </div>
+          </>
+        )}
       </motion.div>
     </AnimatePresence>
   );
@@ -729,6 +762,17 @@ const VideoPlayerModal = ({ isOpen, onClose, media, episode, provider, onNextEpi
   const isMovie = media?.type === 'Movie' || media?.id?.includes('movie');
   const mediaId = media?.id;
 
+  // Helper to sanitize server/provider names for display
+  const sanitizeDisplayName = (name) => {
+    if (!name) return null;
+    // Hide provider identifiers from display
+    const lowerName = name.toLowerCase();
+    if (lowerName.includes('netmirror') || lowerName.includes('net20') || lowerName.includes('nfmirror')) {
+      return 'Stream';
+    }
+    return name;
+  };
+
   // Memoize video source URL
   const videoSourceUrl = useMemo(() => {
     const source = sources?.sources?.find(s => s.quality === 'auto' || s.quality === 'default')
@@ -738,16 +782,23 @@ const VideoPlayerModal = ({ isOpen, onClose, media, episode, provider, onNextEpi
     return source?.url || null;
   }, [sources?.sources]);
 
-  // Memoize subtitles
-  const subtitles = useMemo(() => sources?.subtitles || [], [sources?.subtitles]);
+  // Memoize subtitles - ensure proper format for VideoPlayer
+  const subtitles = useMemo(() => {
+    if (!sources?.subtitles || !Array.isArray(sources.subtitles)) return [];
+    return sources.subtitles.map(sub => ({
+      url: sub.url,
+      lang: sub.lang || sub.label || sub.language || 'Unknown',
+    }));
+  }, [sources?.subtitles]);
 
-  // Reset state when modal opens
+  // Reset state when modal opens or episode changes
   useEffect(() => {
     if (isOpen) {
       setVideoReady(false);
       setVideoError(false);
       setFailedServers(new Set());
       setAutoSwitching(false);
+      setSelectedServer(null);
       errorCountRef.current = 0;
     }
   }, [isOpen, episode?.id]);
@@ -772,7 +823,7 @@ const VideoPlayerModal = ({ isOpen, onClose, media, episode, provider, onNextEpi
 
   // Auto-switch server on error
   useEffect(() => {
-    if (error && !autoSwitching && servers.length > 1) {
+    if (error && !autoSwitching && servers.length > 0) {
       const now = Date.now();
       // Prevent rapid switching (wait at least 2 seconds between switches)
       if (now - lastErrorTimeRef.current < 2000) return;
@@ -899,7 +950,7 @@ const VideoPlayerModal = ({ isOpen, onClose, media, episode, provider, onNextEpi
           className="absolute top-0 left-0 right-0 z-20 p-4"
           style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.8), transparent)' }}
         >
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             {/* Left: Title and episode */}
             <div className="flex-1 min-w-0">
               <h2 className="text-base sm:text-lg font-bold text-white truncate">{media?.title}</h2>
@@ -911,23 +962,26 @@ const VideoPlayerModal = ({ isOpen, onClose, media, episode, provider, onNextEpi
               )}
             </div>
 
-            {/* Center: Server controls */}
-            <div className="hidden sm:flex items-center gap-3 px-4">
-              {servers.length > 0 && (
-                <select
-                  value={selectedServer || ''}
-                  onChange={(e) => setSelectedServer(e.target.value || null)}
-                  className="px-3 py-1.5 rounded-lg text-sm bg-white/10 text-white backdrop-blur outline-none border border-white/20 cursor-pointer"
-                >
-                  <option value="" className="bg-gray-900">Auto Server</option>
-                  {servers.map((server, i) => (
-                    <option key={i} value={server.name} className="bg-gray-900">
-                      {server.name}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
+            {/* Server selector - always visible */}
+            {servers.length > 0 && (
+              <select
+                value={selectedServer || ''}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value) {
+                    setSelectedServer(value);
+                    errorCountRef.current = 0;
+                  }
+                }}
+                className="px-2 py-1.5 rounded-lg text-xs sm:text-sm bg-white/10 text-white backdrop-blur outline-none border border-white/20 cursor-pointer max-w-[140px] sm:max-w-none"
+              >
+                {servers.map((server, i) => (
+                  <option key={i} value={server.name} className="bg-gray-900">
+                    {sanitizeDisplayName(server.name) || `Server ${i + 1}`}
+                  </option>
+                ))}
+              </select>
+            )}
 
             {/* Right: Close button */}
             <button
@@ -939,22 +993,6 @@ const VideoPlayerModal = ({ isOpen, onClose, media, episode, provider, onNextEpi
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
-          </div>
-
-          {/* Mobile controls row */}
-          <div className="sm:hidden flex items-center gap-2 mt-3">
-            {servers.length > 0 && (
-              <select
-                value={selectedServer || ''}
-                onChange={(e) => setSelectedServer(e.target.value || null)}
-                className="flex-1 px-2 py-1.5 rounded text-xs bg-white/10 text-white outline-none"
-              >
-                <option value="">Auto</option>
-                {servers.map((server, i) => (
-                  <option key={i} value={server.name}>{server.name}</option>
-                ))}
-              </select>
-            )}
           </div>
         </motion.div>
 
@@ -993,17 +1031,17 @@ const VideoPlayerModal = ({ isOpen, onClose, media, episode, provider, onNextEpi
 
         {/* Video content */}
         <div className="absolute inset-0 flex items-center justify-center bg-black">
-          {(loading || autoSwitching || (!videoReady && videoSourceUrl && !error)) ? (
+          {(loading || autoSwitching) ? (
             <div className="flex flex-col items-center gap-4">
               <div 
                 className="w-16 h-16 border-4 border-t-transparent rounded-full animate-spin"
                 style={{ borderColor: `${theme.primary} transparent transparent transparent` }}
               />
               <p className="text-white text-base font-medium">
-                {autoSwitching ? 'Switching server...' : loading ? 'Loading video sources...' : 'Initializing player...'}
+                {autoSwitching ? 'Switching server...' : 'Loading video sources...'}
               </p>
               <p className="text-gray-500 text-sm">
-                {selectedServer || 'Selecting best server...'}
+                {sanitizeDisplayName(selectedServer) || 'Selecting server...'}
                 {failedServers.size > 0 && ` (${failedServers.size} server${failedServers.size > 1 ? 's' : ''} failed)`}
               </p>
               {/* Refresh button while loading */}
@@ -1068,7 +1106,7 @@ const VideoPlayerModal = ({ isOpen, onClose, media, episode, provider, onNextEpi
               </div>
             </div>
           ) : videoSourceUrl ? (
-            <VideoPlayer
+            <UniversalPlayer
               src={videoSourceUrl}
               title={isMovie ? media?.title : `${media?.title} - Episode ${episode?.number || 1}`}
               poster={null}
@@ -1081,6 +1119,18 @@ const VideoPlayerModal = ({ isOpen, onClose, media, episode, provider, onNextEpi
                 }
               }}
               onError={handleVideoError}
+              onStalled={() => {
+                // Try to switch to next available server
+                const nextServer = getNextServer();
+                if (nextServer) {
+                  setAutoSwitching(true);
+                  setSelectedServer(nextServer);
+                  setTimeout(() => setAutoSwitching(false), 500);
+                } else {
+                  // No more servers to try
+                  handleVideoError();
+                }
+              }}
               className="w-full h-full"
             />
           ) : (

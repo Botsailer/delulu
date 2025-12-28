@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useThemeStore, useNavigationStore } from '../../store';
-import VideoPlayer from '../VideoPlayer';
+import UniversalPlayer from '../UniversalPlayer';
 import {
   useAnimeProviders,
   useAnimeSpotlight,
@@ -781,7 +781,7 @@ const VideoPlayerModal = ({ isOpen, onClose, anime, episode, provider, onNextEpi
           className="absolute top-0 left-0 right-0 z-20 p-4"
           style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.8), transparent)' }}
         >
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             {/* Left: Title and episode */}
             <div className="flex-1 min-w-0">
               <h2 className="text-base sm:text-lg font-bold text-white truncate">{anime?.title}</h2>
@@ -793,16 +793,15 @@ const VideoPlayerModal = ({ isOpen, onClose, anime, episode, provider, onNextEpi
               )}
             </div>
 
-            {/* Center: Server and Sub/Dub controls */}
-            <div className="hidden sm:flex items-center gap-3 px-4">
+            {/* Server and Sub/Dub controls */}
+            <div className="flex items-center gap-2 sm:gap-3">
               {/* Server selector */}
               {servers.length > 0 && (
                 <select
                   value={selectedServer || ''}
-                  onChange={(e) => setSelectedServer(e.target.value || null)}
-                  className="px-3 py-1.5 rounded-lg text-sm bg-white/10 text-white backdrop-blur outline-none border border-white/20 cursor-pointer"
+                  onChange={(e) => e.target.value && setSelectedServer(e.target.value)}
+                  className="px-2 py-1.5 rounded-lg text-xs sm:text-sm bg-white/10 text-white backdrop-blur outline-none border border-white/20 cursor-pointer max-w-[100px] sm:max-w-none"
                 >
-                  <option value="" className="bg-gray-900">Auto Server</option>
                   {servers.map((server, i) => (
                     <option key={i} value={server.name} className="bg-gray-900">
                       {server.name}
@@ -815,7 +814,7 @@ const VideoPlayerModal = ({ isOpen, onClose, anime, episode, provider, onNextEpi
               <div className="flex rounded-lg overflow-hidden border border-white/20">
                 <button
                   onClick={() => setSubOrDub('sub')}
-                  className="px-3 py-1.5 text-xs font-bold transition-colors"
+                  className="px-2 sm:px-3 py-1.5 text-xs font-bold transition-colors"
                   style={{ 
                     background: subOrDub === 'sub' ? theme.primary : 'transparent',
                     color: '#fff'
@@ -825,7 +824,7 @@ const VideoPlayerModal = ({ isOpen, onClose, anime, episode, provider, onNextEpi
                 </button>
                 <button
                   onClick={() => setSubOrDub('dub')}
-                  className="px-3 py-1.5 text-xs font-bold transition-colors"
+                  className="px-2 sm:px-3 py-1.5 text-xs font-bold transition-colors"
                   style={{ 
                     background: subOrDub === 'dub' ? theme.primary : 'transparent',
                     color: '#fff'
@@ -846,38 +845,6 @@ const VideoPlayerModal = ({ isOpen, onClose, anime, episode, provider, onNextEpi
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
-          </div>
-
-          {/* Mobile controls row */}
-          <div className="sm:hidden flex items-center gap-2 mt-3">
-            {servers.length > 0 && (
-              <select
-                value={selectedServer || ''}
-                onChange={(e) => setSelectedServer(e.target.value || null)}
-                className="flex-1 px-2 py-1.5 rounded text-xs bg-white/10 text-white outline-none"
-              >
-                <option value="">Auto</option>
-                {servers.map((server, i) => (
-                  <option key={i} value={server.name}>{server.name}</option>
-                ))}
-              </select>
-            )}
-            <div className="flex rounded overflow-hidden">
-              <button
-                onClick={() => setSubOrDub('sub')}
-                className="px-2 py-1.5 text-xs font-bold"
-                style={{ background: subOrDub === 'sub' ? theme.primary : 'rgba(255,255,255,0.1)', color: '#fff' }}
-              >
-                SUB
-              </button>
-              <button
-                onClick={() => setSubOrDub('dub')}
-                className="px-2 py-1.5 text-xs font-bold"
-                style={{ background: subOrDub === 'dub' ? theme.primary : 'rgba(255,255,255,0.1)', color: '#fff' }}
-              >
-                DUB
-              </button>
-            </div>
           </div>
         </motion.div>
 
@@ -918,14 +885,14 @@ const VideoPlayerModal = ({ isOpen, onClose, anime, episode, provider, onNextEpi
 
         {/* Video content */}
         <div className="absolute inset-0 flex items-center justify-center bg-black">
-          {(loading || autoSwitching || (!videoReady && videoSourceUrl && !error)) ? (
+          {(loading || autoSwitching) ? (
             <div className="flex flex-col items-center gap-4">
               <div 
                 className="w-16 h-16 border-4 border-t-transparent rounded-full animate-spin"
                 style={{ borderColor: `${theme.primary} transparent transparent transparent` }}
               />
               <p className="text-white text-base font-medium">
-                {autoSwitching ? 'Switching server...' : loading ? 'Loading video sources...' : 'Initializing player...'}
+                {autoSwitching ? 'Switching server...' : 'Loading video sources...'}
               </p>
               <p className="text-gray-500 text-sm">
                 {subOrDub.toUpperCase()} • {selectedServer || 'Selecting best server...'}
@@ -999,7 +966,7 @@ const VideoPlayerModal = ({ isOpen, onClose, anime, episode, provider, onNextEpi
               </div>
             </div>
           ) : videoSourceUrl ? (
-            <VideoPlayer
+            <UniversalPlayer
               src={videoSourceUrl}
               title={`${anime?.title} - Episode ${episode?.number || 1}`}
               poster={null}
@@ -1012,6 +979,18 @@ const VideoPlayerModal = ({ isOpen, onClose, anime, episode, provider, onNextEpi
                 }
               }}
               onError={handleVideoError}
+              onStalled={() => {
+                // Try to switch to next available server
+                const nextServer = getNextServer();
+                if (nextServer) {
+                  setAutoSwitching(true);
+                  setSelectedServer(nextServer);
+                  setTimeout(() => setAutoSwitching(false), 500);
+                } else {
+                  // No more servers to try
+                  handleVideoError();
+                }
+              }}
               className="w-full h-full"
             />
           ) : (
