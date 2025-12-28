@@ -719,6 +719,12 @@ const VideoPlayerModal = ({ isOpen, onClose, media, episode, provider, onNextEpi
   const { servers, fetchServers } = useMovieEpisodeServers();
   const [selectedServer, setSelectedServer] = useState(null);
   const [showControls, setShowControls] = useState(true);
+  const [videoReady, setVideoReady] = useState(false);
+  const [videoError, setVideoError] = useState(false);
+  const [failedServers, setFailedServers] = useState(new Set());
+  const [autoSwitching, setAutoSwitching] = useState(false);
+  const errorCountRef = useRef(0);
+  const lastErrorTimeRef = useRef(0);
   
   const isMovie = media?.type === 'Movie' || media?.id?.includes('movie');
   const mediaId = media?.id;
@@ -735,8 +741,93 @@ const VideoPlayerModal = ({ isOpen, onClose, media, episode, provider, onNextEpi
   // Memoize subtitles
   const subtitles = useMemo(() => sources?.subtitles || [], [sources?.subtitles]);
 
+  // Reset state when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setVideoReady(false);
+      setVideoError(false);
+      setFailedServers(new Set());
+      setAutoSwitching(false);
+      errorCountRef.current = 0;
+    }
+  }, [isOpen, episode?.id]);
+
+  // Auto-select first available server when servers load
+  useEffect(() => {
+    if (servers.length > 0 && !selectedServer) {
+      // Select first server by default
+      setSelectedServer(servers[0]?.name || null);
+    }
+  }, [servers, selectedServer]);
+
+  // Get next available server that hasn't failed
+  const getNextServer = useCallback(() => {
+    const availableServers = servers.filter(s => !failedServers.has(s.name));
+    if (availableServers.length === 0) return null;
+    
+    const currentIdx = availableServers.findIndex(s => s.name === selectedServer);
+    const nextIdx = (currentIdx + 1) % availableServers.length;
+    return availableServers[nextIdx]?.name || availableServers[0]?.name;
+  }, [servers, selectedServer, failedServers]);
+
+  // Auto-switch server on error
+  useEffect(() => {
+    if (error && !autoSwitching && servers.length > 1) {
+      const now = Date.now();
+      // Prevent rapid switching (wait at least 2 seconds between switches)
+      if (now - lastErrorTimeRef.current < 2000) return;
+      
+      errorCountRef.current += 1;
+      lastErrorTimeRef.current = now;
+      
+      // After 2 consecutive errors on same server, switch to next
+      if (errorCountRef.current >= 2) {
+        const nextServer = getNextServer();
+        if (nextServer && nextServer !== selectedServer) {
+          setAutoSwitching(true);
+          setFailedServers(prev => new Set([...prev, selectedServer]));
+          
+          setTimeout(() => {
+            setSelectedServer(nextServer);
+            errorCountRef.current = 0;
+            setAutoSwitching(false);
+          }, 1000);
+        }
+      }
+    }
+  }, [error, servers, selectedServer, autoSwitching, getNextServer]);
+
+  // Handle video ready
+  const handleVideoReady = useCallback(() => {
+    setVideoReady(true);
+    setVideoError(false);
+    errorCountRef.current = 0;
+  }, []);
+
+  // Handle video error - auto switch server
+  const handleVideoError = useCallback(() => {
+    setVideoError(true);
+    const now = Date.now();
+    
+    if (now - lastErrorTimeRef.current > 2000 && servers.length > 1) {
+      lastErrorTimeRef.current = now;
+      const nextServer = getNextServer();
+      if (nextServer && nextServer !== selectedServer) {
+        setAutoSwitching(true);
+        setFailedServers(prev => new Set([...prev, selectedServer]));
+        
+        setTimeout(() => {
+          setSelectedServer(nextServer);
+          setAutoSwitching(false);
+          setVideoError(false);
+        }, 1500);
+      }
+    }
+  }, [servers, selectedServer, getNextServer]);
+
   useEffect(() => {
     if (isOpen && episode?.id && mediaId) {
+      setVideoReady(false);
       fetchSources(provider, episode.id, mediaId, selectedServer);
       fetchServers(provider, episode.id, mediaId);
     }
@@ -902,36 +993,54 @@ const VideoPlayerModal = ({ isOpen, onClose, media, episode, provider, onNextEpi
 
         {/* Video content */}
         <div className="absolute inset-0 flex items-center justify-center bg-black">
-          {loading ? (
+          {(loading || autoSwitching || (!videoReady && videoSourceUrl && !error)) ? (
             <div className="flex flex-col items-center gap-4">
               <div 
                 className="w-16 h-16 border-4 border-t-transparent rounded-full animate-spin"
                 style={{ borderColor: `${theme.primary} transparent transparent transparent` }}
               />
-              <p className="text-white text-base font-medium">Loading video sources...</p>
+              <p className="text-white text-base font-medium">
+                {autoSwitching ? 'Switching server...' : loading ? 'Loading video sources...' : 'Initializing player...'}
+              </p>
               <p className="text-gray-500 text-sm">
-                {selectedServer || 'Auto Server'}
+                {selectedServer || 'Selecting best server...'}
+                {failedServers.size > 0 && ` (${failedServers.size} server${failedServers.size > 1 ? 's' : ''} failed)`}
               </p>
               {/* Refresh button while loading */}
-              <button
-                onClick={() => fetchSources(provider, episode?.id, mediaId, selectedServer)}
-                className="mt-2 px-4 py-2 rounded-lg font-medium text-sm hover:scale-105 transition-transform flex items-center gap-2"
-                style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: '1px solid rgba(255,255,255,0.2)' }}
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                Refresh
-              </button>
+              {!autoSwitching && (
+                <button
+                  onClick={() => {
+                    setVideoReady(false);
+                    fetchSources(provider, episode?.id, mediaId, selectedServer);
+                  }}
+                  className="mt-2 px-4 py-2 rounded-lg font-medium text-sm hover:scale-105 transition-transform flex items-center gap-2"
+                  style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: '1px solid rgba(255,255,255,0.2)' }}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Refresh
+                </button>
+              )}
             </div>
           ) : error ? (
             <div className="flex flex-col items-center gap-4 text-center px-4">
               <div className="text-5xl">⚠️</div>
               <h3 className="text-lg font-bold text-white">Failed to load video</h3>
               <p className="text-gray-400 max-w-md text-sm">{error}</p>
-              <div className="flex items-center gap-3 mt-2">
+              {failedServers.size > 0 && (
+                <p className="text-gray-500 text-xs">
+                  Failed servers: {[...failedServers].join(', ')}
+                </p>
+              )}
+              <div className="flex flex-wrap justify-center gap-3 mt-2">
                 <button
-                  onClick={() => fetchSources(provider, episode?.id, mediaId, selectedServer)}
+                  onClick={() => {
+                    setVideoReady(false);
+                    setFailedServers(new Set());
+                    errorCountRef.current = 0;
+                    fetchSources(provider, episode?.id, mediaId, selectedServer);
+                  }}
                   className="px-5 py-2.5 rounded-lg font-medium hover:scale-105 transition-transform flex items-center gap-2"
                   style={{ background: theme.primary, color: '#fff' }}
                 >
@@ -943,10 +1052,12 @@ const VideoPlayerModal = ({ isOpen, onClose, media, episode, provider, onNextEpi
                 {servers.length > 1 && (
                   <button
                     onClick={() => {
-                      // Try next server
-                      const currentIdx = servers.findIndex(s => s.name === selectedServer);
-                      const nextIdx = (currentIdx + 1) % servers.length;
-                      setSelectedServer(servers[nextIdx]?.name || null);
+                      // Try next available server
+                      const nextServer = getNextServer();
+                      if (nextServer) {
+                        setSelectedServer(nextServer);
+                        setVideoReady(false);
+                      }
                     }}
                     className="px-5 py-2.5 rounded-lg font-medium hover:scale-105 transition-transform"
                     style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: '1px solid rgba(255,255,255,0.2)' }}
@@ -963,28 +1074,54 @@ const VideoPlayerModal = ({ isOpen, onClose, media, episode, provider, onNextEpi
               poster={null}
               subtitles={subtitles}
               autoPlay={true}
+              onReady={handleVideoReady}
               onEnded={() => {
                 if (!isMovie && hasNextEpisode) {
                   onNextEpisode?.(episodes[currentEpisodeIndex + 1]);
                 }
               }}
-              onError={() => {}}
+              onError={handleVideoError}
               className="w-full h-full"
             />
           ) : (
             <div className="flex flex-col items-center gap-4">
               <div className="text-5xl">📺</div>
               <p className="text-gray-400">No video sources available</p>
-              <button
-                onClick={() => fetchSources(provider, episode?.id, mediaId, selectedServer)}
-                className="mt-2 px-5 py-2.5 rounded-lg font-medium hover:scale-105 transition-transform flex items-center gap-2"
-                style={{ background: theme.primary, color: '#fff' }}
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                Retry
-              </button>
+              {servers.length > 1 && (
+                <p className="text-gray-500 text-xs">
+                  Try switching to a different server
+                </p>
+              )}
+              <div className="flex flex-wrap justify-center gap-3 mt-2">
+                <button
+                  onClick={() => {
+                    setVideoReady(false);
+                    fetchSources(provider, episode?.id, mediaId, selectedServer);
+                  }}
+                  className="px-5 py-2.5 rounded-lg font-medium hover:scale-105 transition-transform flex items-center gap-2"
+                  style={{ background: theme.primary, color: '#fff' }}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Retry
+                </button>
+                {servers.length > 1 && (
+                  <button
+                    onClick={() => {
+                      const nextServer = getNextServer();
+                      if (nextServer) {
+                        setSelectedServer(nextServer);
+                        setVideoReady(false);
+                      }
+                    }}
+                    className="px-5 py-2.5 rounded-lg font-medium hover:scale-105 transition-transform"
+                    style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: '1px solid rgba(255,255,255,0.2)' }}
+                  >
+                    Try Another Server
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </div>

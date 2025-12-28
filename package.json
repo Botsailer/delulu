@@ -19,7 +19,7 @@
     "build:linux": "npm run build:renderer && npx electron-builder --linux",
     "build:win": "npm run build:renderer && npx electron-builder --win",
     "build:mac": "npm run build:renderer && npx electron-builder --mac",
-    "build:all": "npm run build:renderer && npx electron-builder --linux --win --mac",
+    "build:all": "npm run build:renderer && npx electron-builder --linux --win",
     "build:linux-dev": "npm run build:renderer && npx electron-builder --linux",
     "build:win-dev": "npm run build:renderer && npx electron-builder --win",
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -41,6 +41,7 @@
       "api-handler.js",
       "anime-handler.js",
       "manga-handler.js",
+      "movie-handler.js",
       "package.json",
       "assets/icon.*",
       "renderer/dist/**/*",
